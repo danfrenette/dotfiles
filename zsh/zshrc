@@ -1,0 +1,127 @@
+# ==============================================================================
+# Dotfiles
+# ==============================================================================
+
+export DOTFILES="$HOME/code/dotfiles"
+export XDG_CONFIG_HOME="$HOME/.config"
+
+# ==============================================================================
+# Editor
+# ==============================================================================
+
+export EDITOR=nvim
+export VISUAL=nvim
+
+# ==============================================================================
+# History
+# ==============================================================================
+
+HISTSIZE=20000
+SAVEHIST=20000
+HISTFILE=~/.zsh_history
+
+setopt append_history         # Append, don't replace
+setopt inc_append_history     # Write immediately, not on shell exit
+setopt hist_ignore_dups       # Ignore consecutive duplicates
+setopt hist_ignore_space      # Ignore commands starting with space
+setopt hist_verify            # Show command before executing from history
+
+# ==============================================================================
+# Completion
+# ==============================================================================
+
+autoload -Uz compinit
+compinit
+
+# Case-insensitive completion
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
+
+# Completion menu with selection
+zstyle ':completion:*' menu select
+
+# Colored completion
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+
+# ==============================================================================
+# Options
+# ==============================================================================
+
+setopt prompt_subst           # Enable prompt substitution
+setopt correct                # Typo correction
+
+# Disable Ctrl-S/Ctrl-Q flow control (prevents terminal freeze)
+if [[ -t 0 ]]; then
+  stty start undef
+  stty stop undef
+fi
+
+# ==============================================================================
+# Keybindings
+# ==============================================================================
+
+bindkey "^s" beginning-of-line
+bindkey "^e" end-of-line
+bindkey "^f" forward-char
+bindkey "^b" backward-char
+bindkey "^k" kill-line
+bindkey "^d" delete-char
+bindkey "^p" history-search-backward
+bindkey "^n" history-search-forward
+bindkey "^y" accept-and-hold
+bindkey "^w" backward-kill-word
+bindkey "^u" backward-kill-line
+bindkey '^[[Z' reverse-menu-complete  # Shift-tab to go backwards
+
+# ==============================================================================
+# Less / Man pages (colored output)
+# ==============================================================================
+
+export LESS="--ignore-case --LONG-PROMPT --RAW-CONTROL-CHARS --quit-if-one-screen --no-init"
+export LESS_TERMCAP_mb=$'\E[1;31m'     # Begin blinking (red)
+export LESS_TERMCAP_md=$'\E[1;36m'     # Begin bold (cyan)
+export LESS_TERMCAP_me=$'\E[0m'        # End mode
+export LESS_TERMCAP_so=$'\E[1;44;33m'  # Begin standout (yellow on blue)
+export LESS_TERMCAP_se=$'\E[0m'        # End standout
+export LESS_TERMCAP_us=$'\E[4;32m'     # Begin underline (green)
+export LESS_TERMCAP_ue=$'\E[0m'        # End underline
+
+# ==============================================================================
+# Hooks (precmd runs before each prompt)
+# ==============================================================================
+
+function precmd {
+  vcs_info                    # Update git info for prompt
+  print -Pn "\e]0;%~\a"       # Set window title to current directory
+}
+
+# ==============================================================================
+# Source config files
+# ==============================================================================
+
+source $DOTFILES/zsh/configs/aliases.zsh
+source $DOTFILES/zsh/configs/functions.zsh
+source $DOTFILES/zsh/configs/plugins.zsh
+source $DOTFILES/zsh/configs/prompt.zsh
+
+# ==============================================================================
+# Path
+# ==============================================================================
+
+export PATH="$HOME/.rbenv/shims:$PATH"
+eval "$(rbenv init -)"
+
+# pnpm
+export PNPM_HOME="$HOME/Library/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+
+# ==============================================================================
+# Misc
+# ==============================================================================
+
+USE_BUILTIN_RIPGREP=0
+
+# Machine-specific config (not tracked in git)
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local

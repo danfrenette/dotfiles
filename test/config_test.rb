@@ -30,6 +30,20 @@ class ConfigTest < DotfilesTestCase
     assert_equal @config.home_path(".config", "git", "ignore"), mappings[@config.dotfiles_path("git", "ignore")]
   end
 
+  def test_mappings_includes_zsh_configs
+    mappings = @config.mappings
+
+    assert mappings.key?(@config.dotfiles_path("zsh", "zshrc"))
+    assert mappings.key?(@config.dotfiles_path("zsh", "zprofile"))
+  end
+
+  def test_zsh_mappings_point_to_correct_targets
+    mappings = @config.mappings
+
+    assert_equal @config.home_path(".zshrc"), mappings[@config.dotfiles_path("zsh", "zshrc")]
+    assert_equal @config.home_path(".zprofile"), mappings[@config.dotfiles_path("zsh", "zprofile")]
+  end
+
   def test_all_mapping_sources_are_absolute_paths
     @config.mappings.each_key do |source|
       assert source.start_with?("/"), "Source path should be absolute: #{source}"
