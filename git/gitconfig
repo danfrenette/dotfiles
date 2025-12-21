@@ -1,0 +1,86 @@
+[user]
+  name = Dan Frenette
+  email = dan.r.frenette@gmail.com
+[init]
+  templatedir = ~/.git_template
+  defaultBranch = main
+[push]
+  default = current
+  autoSetupRemote = true
+[color]
+  ui = true
+  diff = auto
+  status = auto
+  branch = auto
+[color "diff"]
+  meta = yellow
+[alias]
+  aa = add --all
+  ap = add --patch
+  branches = for-each-ref --sort=-committerdate --format=\"%(color:blue)%(authordate:relative)\t%(color:red)%(authorname)\t%(color:white)%(color:bold)%(refname:short)\" refs/remotes
+  ci = commit -v
+  co = checkout
+  lol = log --pretty='format:%h %cs%Cblue%d%Creset %s' -40
+  st = status
+  sl = log --oneline --decorate -20
+  sla = log --oneline --decorate --graph --all -20
+  slp = log --oneline --decorate
+  slap = log --graph --all --decorate --pretty=format:\"%Cblue%d %Cred%h%Creset . %an: %s %Cgreen(%cr)%Creset\" --abbrev-commit --date=relative
+  glog = log -E -i --grep
+  br = branch
+  unstage = reset
+  ###
+  cp = cherry-pick
+  cpa = cherry-pick --abort
+  cpc = cherry-pick --continue
+  ###
+  rb = rebase
+  rba = rebase --abort
+  rbc = rebase --continue
+  rbi = rebase --interactive
+  rbs = rebase --skip
+  ###
+  pfl = push --force-with-lease
+  pr = pull --rebase
+  ###
+  fuck = reset HEAD@{1}
+  uncommit = reset --soft HEAD^
+  standup = log --since=yesterday --author=\"Dan Frenette\"
+  conflicts = diff --name-only --diff-filter=U
+  cleanup = !git remote prune origin && git gc && git clean -df && git stash clear
+  copysha = !git rev-parse HEAD | pbcopy
+[core]
+  excludesfile = ~/.gitignore
+  autocrlf = input
+  editor = nvim
+  pager = delta
+[interactive]
+  diffFilter = delta --color-only
+[merge]
+  ff = only
+  tool = vim
+  conflictStyle = zdiff3
+[delta]
+  navigate = true  # use n and N to move between diff sections
+  dark = true      # or light = true, or omit for auto-detection
+[commit]
+  template = ~/.gitmessage
+[pull]
+  ff = only
+[fetch]
+  prune = true
+[rebase]
+  autosquash = true
+  autoStash = true
+[branch]
+  sort = -committerdate
+[diff]
+  algorithm = histogram
+[help]
+  autocorrect = 1
+[include]
+  path = ~/.gitconfig.local
+[rerere]
+  enabled = 1
+[github]
+  user = danfrenette
