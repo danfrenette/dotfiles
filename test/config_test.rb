@@ -63,6 +63,27 @@ class ConfigTest < DotfilesTestCase
                  mappings[@config.dotfiles_path("config", "nvim", "lua", "options.lua")]
   end
 
+  def test_mappings_includes_opencode_agents
+    mappings = @config.mappings
+
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "build-confirm.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "reviewer.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "technical-writer.md"))
+  end
+
+  def test_opencode_mappings_point_to_correct_targets
+    mappings = @config.mappings
+
+    assert_equal @config.home_path(".config", "opencode", "agents", "reviewer.md"),
+                 mappings[@config.dotfiles_path("config", "opencode", "agents", "reviewer.md")]
+  end
+
+  def test_all_mapping_sources_are_absolute_paths
+    @config.mappings.each_key do |source|
+      assert source.start_with?("/"), "Source path should be absolute: #{source}"
+    end
+  end
+
   def test_all_mapping_targets_are_absolute_paths
     @config.mappings.each_value do |target|
       assert target.start_with?("/"), "Target path should be absolute: #{target}"
