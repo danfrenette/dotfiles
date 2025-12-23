@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require_relative "lib/linker"
-require_relative "lib/config"
+require_relative "lib/installer"
 
-puts "Dotfiles installer ready"
-puts "Run 'rake test' to verify setup"
+skip_brew = ARGV.include?("--skip-brew") || ARGV.include?("-s")
+
+Installer.new(skip_brew: skip_brew).install
