@@ -1,0 +1,64 @@
+# My Dotfiles
+
+These are the configuration files that serve as the foundation of my career as a professional Keyboard Toucher™
+
+### Philosophy
+
+Aside from a handful of industry standard pieces of software (e.g. Slack, Cursor) I try to lean on tools that focus on doing one thing really, really well. Other than that, the only thing I can say is I'm a really big fan of aliases. You'll find I've added them for just about everything I can think of. If you find any of them useful, let me know.
+
+## Installation
+
+### Quick Start
+
+```bash
+git clone https://github.com/danfrenette/dotfiles.git ~/code/dotfiles
+cd ~/code/dotfiles
+./bootstrap.sh
+```
+
+This will:
+1. Install Homebrew (if not already installed)
+2. Install packages from `Brewfile`
+3. Symlink config files to their target locations
+4. Install Neovim plugins
+
+### Manual Installation
+
+```bash
+# Install Ruby dependencies
+bundle install
+
+# Full installation
+./install.rb
+
+# Skip Homebrew packages (just symlink configs)
+./install.rb --skip-brew
+```
+
+### Development
+
+```bash
+bundle exec rake test       # Run tests
+bundle exec rake standard   # Run linter
+bundle exec rake brew       # Install Homebrew packages only
+```
+
+## What's Included
+
+- **Git** - Config, global gitignore, commit template
+- **Zsh** - Shell config, aliases, functions, plugins, prompt
+- **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
+- **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
+- **Ruby** - irbrc/pryrc with awesome_print and helpers
+- **OpenCode** - Custom AI agent configs (reviewer, technical-writer)
+- **Homebrew** - CLI tools and casks via Brewfile
+
+## Adding New Dotfiles
+
+1. Add source files to the appropriate directory
+2. Update `lib/config.rb` with the new mappings
+3. Run `./install.rb --skip-brew` to create symlinks
+
+## Backup Behavior
+
+When a target file already exists and is not a symlink, the installer backs it up with a `.backup` suffix before creating the symlink.
