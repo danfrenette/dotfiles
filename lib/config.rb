@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+# Defines mappings between dotfiles sources and their target locations
 class Config
-  DOTFILES_ROOT = File.expand_path("..", __dir__)
+  DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
+  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings].freeze
 
   def mappings
-    {}.merge(git_mappings).merge(zsh_mappings).merge(nvim_mappings).merge(opencode_mappings)
+    MAPPING_METHODS.map { |m| send(m) }.reduce({}, :merge)
   end
 
   def dotfiles_path(*parts)
@@ -13,6 +15,14 @@ class Config
 
   def home_path(*parts)
     File.join(Dir.home, *parts)
+  end
+
+  def nvim_init_target
+    home_path(".config", "nvim", "init.lua")
+  end
+
+  def brewfile_path
+    File.join(DOTFILES_ROOT, "Brewfile")
   end
 
   private

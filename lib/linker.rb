@@ -2,6 +2,7 @@
 
 require "fileutils"
 
+# Creates symlinks from dotfiles to target locations
 class Linker
   BACKUP_SUFFIX = ".backup"
 

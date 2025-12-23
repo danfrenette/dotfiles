@@ -5,11 +5,11 @@ require_relative "config"
 
 # Orchestrates the full dotfiles installation
 class Installer
-  def initialize(output: $stdout, skip_brew: false)
+  def initialize(output: $stdout, skip_brew: false, linker: Linker.new, config: Config.new)
     @output = output
     @skip_brew = skip_brew
-    @linker = Linker.new
-    @config = Config.new
+    @linker = linker
+    @config = config
   end
 
   def install
@@ -18,16 +18,18 @@ class Installer
     post_install
   end
 
+  private
+
   def install_brew_packages
     header "Installing Homebrew packages"
 
-    brewfile = File.join(Config::DOTFILES_ROOT, "Brewfile")
-    unless File.exist?(brewfile)
+    unless File.exist?(@config.brewfile_path)
       warn "Brewfile not found, skipping"
       return
     end
 
-    system("brew bundle --file=#{brewfile}")
+    success = system("brew bundle --file=#{@config.brewfile_path}")
+    warn "brew bundle failed, continuing anyway" unless success
   end
 
   def link_dotfiles
@@ -41,23 +43,9 @@ class Installer
 
   def post_install
     header "Post-install"
-
-    # Install vim-plug plugins
-    if File.exist?(File.expand_path("~/.config/nvim/init.lua"))
-      log "Installing Neovim plugins..."
-      system('nvim --headless "+PlugInstall" "+qa" 2>/dev/null')
-      log "  done"
-    end
-
-    log ""
-    log "Installation complete!"
-    log ""
-    log "Next steps:"
-    log "  1. Restart your terminal (or run: exec zsh)"
-    log "  2. Open nvim and run :PlugInstall if plugins weren't installed"
+    install_nvim_plugins
+    log_completion_message
   end
-
-  private
 
   def header(text)
     log ""
@@ -80,6 +68,25 @@ class Installer
       log "  [LINK] #{filename} -> #{target}"
     when :already_linked
       log "  [OK]   #{filename}"
+    else
+      log "  [???]  #{filename} (unknown result: #{result})"
     end
+  end
+
+  def install_nvim_plugins
+    return unless File.exist?(@config.nvim_init_target)
+
+    log "Installing Neovim plugins..."
+    system('nvim --headless "+PlugInstall" "+qa" 2>/dev/null')
+    log "  done"
+  end
+
+  def log_completion_message
+    log ""
+    log "Installation complete!"
+    log ""
+    log "Next steps:"
+    log "  1. Restart your terminal (or run: exec zsh)"
+    log "  2. Open nvim and run :PlugInstall if plugins weren't installed"
   end
 end
