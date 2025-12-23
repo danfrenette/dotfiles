@@ -16,6 +16,8 @@ brew "neovim"
 brew "tmux"
 brew "rbenv"
 brew "zplug"            # Zsh plugin manager
+brew "thefuck"          # Auto-correct previous command
+brew "zsh-autosuggestions"  # Fish-like autosuggestions
 
 # ==============================================================================
 # Casks (GUI Apps)

@@ -1,0 +1,9 @@
+Pry.editor = "nvim"
+
+# Pretty print objects with awesome_print if available
+begin
+  require "awesome_print"
+  Pry.print = proc { |output, value| output.puts value.ai }
+rescue LoadError
+  # awesome_print not installed, use default
+end

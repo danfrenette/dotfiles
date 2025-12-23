@@ -3,7 +3,7 @@
 # Defines mappings between dotfiles sources and their target locations
 class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
-  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings].freeze
+  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings tmux_mappings ruby_mappings].freeze
 
   def mappings
     MAPPING_METHODS.map { |m| send(m) }.reduce({}, :merge)
@@ -61,6 +61,19 @@ class Config
         "reviewer.md") => home_path(".config", "opencode", "agent", "reviewer.md"),
       dotfiles_path("config", "opencode", "agent",
         "technical-writer.md") => home_path(".config", "opencode", "agent", "technical-writer.md")
+    }
+  end
+
+  def tmux_mappings
+    {
+      dotfiles_path("tmux", "tmux.conf") => home_path(".tmux.conf")
+    }
+  end
+
+  def ruby_mappings
+    {
+      dotfiles_path("ruby", "irbrc") => home_path(".irbrc"),
+      dotfiles_path("ruby", "pryrc") => home_path(".pryrc")
     }
   end
 end
