@@ -1,0 +1,4 @@
+# Generated files - don't track
+undo/
+autoload/
+bundle/
