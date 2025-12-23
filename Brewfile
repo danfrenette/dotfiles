@@ -17,16 +17,34 @@ brew "tmux"
 brew "rbenv"
 brew "zplug"            # Zsh plugin manager
 brew "thefuck"          # Auto-correct previous command
+brew "tig"              # Text-mode git interface
+brew "tokei"            # Count lines of code by language
+brew "tree"             # Display directory structure
 brew "zsh-autosuggestions"  # Fish-like autosuggestions
 
 # ==============================================================================
 # Casks (GUI Apps)
 # ==============================================================================
 
-cask "spotify"
-cask "cursor"
-cask "slack"
-cask "linear-linear"
-cask "kitty"
+cask "alfred"
 cask "bear"
+cask "bettersnaptool"
+cask "caffeine"
+cask "cleanshot"
+cask "cursor"
+cask "discord"
+cask "docker"
+cask "dropbox"
+cask "kitty"
+cask "linear-linear"
 cask "microsoft-word"
+cask "nordpass"
+cask "postman"
+cask "protonvpn"
+cask "qlcolorcode"       # QuickLook: syntax highlighting
+cask "qlmarkdown"        # QuickLook: markdown preview
+cask "quicklook-json"    # QuickLook: pretty JSON
+cask "slack"
+cask "spotify"
+cask "things"
+cask "zoom"
