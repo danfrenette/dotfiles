@@ -58,24 +58,24 @@ class ConfigTest < DotfilesTestCase
     mappings = @config.mappings
 
     assert_equal @config.home_path(".config", "nvim", "init.lua"),
-                 mappings[@config.dotfiles_path("config", "nvim", "init.lua")]
+      mappings[@config.dotfiles_path("config", "nvim", "init.lua")]
     assert_equal @config.home_path(".config", "nvim", "lua", "options.lua"),
-                 mappings[@config.dotfiles_path("config", "nvim", "lua", "options.lua")]
+      mappings[@config.dotfiles_path("config", "nvim", "lua", "options.lua")]
   end
 
   def test_mappings_includes_opencode_agents
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "build-confirm.md"))
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "reviewer.md"))
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agents", "technical-writer.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "build-confirm.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "reviewer.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "technical-writer.md"))
   end
 
   def test_opencode_mappings_point_to_correct_targets
     mappings = @config.mappings
 
-    assert_equal @config.home_path(".config", "opencode", "agents", "reviewer.md"),
-                 mappings[@config.dotfiles_path("config", "opencode", "agents", "reviewer.md")]
+    assert_equal @config.home_path(".config", "opencode", "agent", "reviewer.md"),
+      mappings[@config.dotfiles_path("config", "opencode", "agent", "reviewer.md")]
   end
 
   def test_all_mapping_sources_are_absolute_paths
