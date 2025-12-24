@@ -17,6 +17,7 @@ cd ~/code/dotfiles
 ```
 
 This will:
+
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
 3. Symlink config files to their target locations
@@ -62,3 +63,15 @@ bundle exec rake brew       # Install Homebrew packages only
 ## Backup Behavior
 
 When a target file already exists and is not a symlink, the installer backs it up with a `.backup` suffix before creating the symlink.
+
+## Inspiration
+
+Here's a few other dotfiles repos that I ~~stole a bunch of stuff from~~ was inspired by:
+
+- [Ben Orenstein's dotfiles][r00k]
+- [Blake Williams' dotfiles][blakewilliams]
+- [Chris Toomey's dotfiles][christoomey]
+
+[r00k]: https://github.com/r00k/dotfiles
+[blakewilliams]: https://github.com/BlakeWilliams/dotfiles
+[christoomey]: https://github.com/christoomey/dotfiles
