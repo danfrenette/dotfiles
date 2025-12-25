@@ -1,10 +1,15 @@
 # My Dotfiles
 
-These are the configuration files that serve as the foundation of my career as a professional Keyboard Toucher™
+These are the configuration files that serve as the foundation of my career as
+a professional Keyboard Toucher™
 
 ### Philosophy
 
-Aside from a handful of industry standard pieces of software (e.g. Slack, Cursor) I try to lean on tools that focus on doing one thing really, really well. Other than that, the only thing I can say is I'm a really big fan of aliases. You'll find I've added them for just about everything I can think of. If you find any of them useful, let me know.
+Aside from a handful of industry standard pieces of software (e.g. Slack,
+Cursor) I try to lean on tools that focus on doing one thing really, really
+well. Other than that, the only thing I can say is I'm a really big fan of
+aliases. You'll find I've added them for just about everything I can think of.
+If you find any of them useful, let me know.
 
 ## Installation
 
@@ -46,8 +51,8 @@ bundle exec rake brew       # Install Homebrew packages only
 
 ## What's Included
 
-- **Git** - Config, global gitignore, commit template
-- **Zsh** - Shell config, aliases, functions, plugins, prompt
+- **Git** - Config with way too many aliases, global gitignore I don't use, commit template that I also don't use.
+- **Zsh** - Shell config, aliases (too many), functions (not enough), some decent plugins
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
@@ -62,7 +67,8 @@ bundle exec rake brew       # Install Homebrew packages only
 
 ## Backup Behavior
 
-When a target file already exists and is not a symlink, the installer backs it up with a `.backup` suffix before creating the symlink.
+When a target file already exists and is not a symlink, the installer backs it
+up with a `.backup` suffix before creating the symlink.
 
 ## Inspiration
 
