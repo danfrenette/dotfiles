@@ -11,6 +11,8 @@ brew "gh"               # GitHub CLI
 brew "fzf"              # Fuzzy finder
 brew "ripgrep"          # Fast grep
 brew "bat"              # Better cat
+brew "eza"              # Modern ls replacement
+brew "fd"               # Fast find replacement
 brew "jq"               # JSON processor
 brew "neovim"
 brew "tmux"
@@ -27,7 +29,6 @@ brew "zsh-autosuggestions"  # Fish-like autosuggestions
 # ==============================================================================
 
 cask "alfred"
-cask "bear"
 cask "bettersnaptool"
 cask "caffeine"
 cask "cleanshot"

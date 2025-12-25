@@ -77,7 +77,9 @@ Here's a few other dotfiles repos that I ~~stole a bunch of stuff from~~ was ins
 - [Ben Orenstein's dotfiles][r00k]
 - [Blake Williams' dotfiles][blakewilliams]
 - [Chris Toomey's dotfiles][christoomey]
+- [Gabe Berke-Williams' dotfiles][gabebw]
 
 [r00k]: https://github.com/r00k/dotfiles
 [blakewilliams]: https://github.com/BlakeWilliams/dotfiles
 [christoomey]: https://github.com/christoomey/dotfiles
+[gabebw]: https://github.com/gabebw/dotfiles

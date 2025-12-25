@@ -13,11 +13,9 @@ rescue LoadError
   # awesome_print not installed, use default
 end
 
-# Copy last result to clipboard (macOS)
-def pbcopy(str = nil)
-  str ||= IRB.CurrentContext.last_value
-  IO.popen("pbcopy", "w") { |io| io.write(str.to_s) }
-  str
+# Paste from clipboard (macOS)
+def paste
+  IO.popen("pbpaste", "r").read
 end
 
 # Clear the screen

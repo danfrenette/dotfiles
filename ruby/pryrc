@@ -7,3 +7,29 @@ begin
 rescue LoadError
   # awesome_print not installed, use default
 end
+
+# Paste from clipboard (macOS)
+def paste
+  IO.popen("pbpaste", "r").read
+end
+
+# Copy to clipboard: pbcopy or pbcopy(value) or pbcopy(pretty: true)
+def copy(value, pretty: false)
+  text = if pretty
+    case value
+    when String then value
+    when Hash, Array
+      require "json"
+      JSON.pretty_generate(value)
+    else
+      require "pp"
+      PP.pp(value, +"")
+    end
+  else
+    value.inspect
+  end
+
+  IO.popen("pbcopy", "w") { |io| io.write(text) }
+  puts "Copied #{text.length} chars to clipboard"
+  nil
+end
