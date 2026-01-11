@@ -10,6 +10,7 @@ permission:
     "git log*": allow
     "git status*": allow
     "git show*": allow
+    "linear *": allow
     "*": deny
 ---
 
@@ -19,8 +20,45 @@ When asked to create a Linear ticket:
 
 1. Review the changes or requirements provided
 2. Determine ticket type: Feature, Bug, or Chore
-3. Follow the appropriate template exactly
-4. Output escaped markdown via a code fence that can be copied directly into a terminal
+3. Check if the `linear` CLI is available and configured by running `linear issue list --help`
+4. If the CLI is available:
+   - Use `linear issue create` with appropriate flags to create the ticket directly
+   - Return the created issue ID/URL
+5. If the CLI is NOT available (command not found or not configured):
+   - Fall back to outputting escaped markdown via a code fence that can be copied directly into Linear
+
+## Using the Linear CLI
+
+When the CLI is available, create tickets using:
+
+```bash
+linear issue create \
+  --title "Ticket title" \
+  --description "Description content" \
+  --priority 1-4 \        # 1=urgent, 2=high, 3=medium, 4=low (optional)
+  --label "bug" \         # can repeat for multiple labels (optional)
+  --assignee self \       # or username (optional)
+  --estimate 3 \          # story points (optional)
+  --team TEAM \           # team key (optional, uses default)
+  --project "Project" \   # project name (optional)
+  --start                 # start working immediately (optional)
+```
+
+Use `linear issue create --help` to discover all available options.
+
+For complex queries not supported by the CLI, you can use the GraphQL API directly:
+
+```bash
+# Write schema to find available fields
+linear schema -o "${TMPDIR:-/tmp}/linear-schema.graphql"
+grep -A 30 "^type Issue " "${TMPDIR:-/tmp}/linear-schema.graphql"
+
+# Make API calls with curl
+curl -s -X POST https://api.linear.app/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: $(linear auth token)" \
+  -d '{"query": "..."}'
+```
 
 ## Feature Tickets
 

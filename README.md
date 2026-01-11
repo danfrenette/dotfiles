@@ -56,7 +56,7 @@ bundle exec rake brew       # Install Homebrew packages only
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **OpenCode** - Custom AI agent configs (reviewer, technical-writer)
+- **OpenCode** - Custom AI agent configs (reviewer, commit-writer, ticket-writer, prd-writer)
 - **Homebrew** - CLI tools and casks via Brewfile
 
 ## Adding New Dotfiles

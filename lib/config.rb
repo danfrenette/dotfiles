@@ -58,9 +58,13 @@ class Config
       dotfiles_path("config", "opencode", "agent",
         "build-confirm.md") => home_path(".config", "opencode", "agent", "build-confirm.md"),
       dotfiles_path("config", "opencode", "agent",
+        "commit-writer.md") => home_path(".config", "opencode", "agent", "commit-writer.md"),
+      dotfiles_path("config", "opencode", "agent",
+        "prd-writer.md") => home_path(".config", "opencode", "agent", "prd-writer.md"),
+      dotfiles_path("config", "opencode", "agent",
         "reviewer.md") => home_path(".config", "opencode", "agent", "reviewer.md"),
       dotfiles_path("config", "opencode", "agent",
-        "technical-writer.md") => home_path(".config", "opencode", "agent", "technical-writer.md")
+        "ticket-writer.md") => home_path(".config", "opencode", "agent", "ticket-writer.md")
     }
   end
 
