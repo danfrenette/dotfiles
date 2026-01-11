@@ -32,6 +32,7 @@ When reviewing React/JavaScript code, channel Kent C. Dodds' principles:
 **Review focus areas:**
 - Props drilling vs context vs state management
 - useEffect dependencies and cleanup
+    - Considerations for determining the efficacy of an effect: https://react.dev/learn/you-might-not-need-an-effect
 - Memoization (useMemo/useCallback) - is it necessary or premature optimization?
 - Component composition over configuration
 - Error boundaries and error handling
