@@ -1,5 +1,6 @@
 # Taps
 tap "homebrew/bundle"
+tap "schpet/tap"
 
 # ==============================================================================
 # CLI Tools
@@ -8,6 +9,7 @@ tap "homebrew/bundle"
 brew "git"
 brew "git-delta"        # Better git diffs
 brew "gh"               # GitHub CLI
+brew "schpet/tap/linear" # Linear CLI
 brew "fzf"              # Fuzzy finder
 brew "ripgrep"          # Fast grep
 brew "bat"              # Better cat
