@@ -25,6 +25,9 @@ brew "tig"              # Text-mode git interface
 brew "tokei"            # Count lines of code by language
 brew "tree"             # Display directory structure
 brew "zsh-autosuggestions"  # Fish-like autosuggestions
+brew "pgcli"              # PostgreSQL CLI with autocomplete
+brew "httpie"             # HTTP client, curl alternative
+brew "lnav"               # Log file viewer
 
 # ==============================================================================
 # Casks (GUI Apps)

@@ -3,7 +3,8 @@
 # Defines mappings between dotfiles sources and their target locations
 class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
-  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings tmux_mappings ruby_mappings].freeze
+  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings tmux_mappings ruby_mappings
+    psql_mappings].freeze
 
   def mappings
     MAPPING_METHODS.map { |m| send(m) }.reduce({}, :merge)
@@ -78,6 +79,12 @@ class Config
     {
       dotfiles_path("ruby", "irbrc") => home_path(".irbrc"),
       dotfiles_path("ruby", "pryrc") => home_path(".pryrc")
+    }
+  end
+
+  def psql_mappings
+    {
+      dotfiles_path("config", "psqlrc") => home_path(".psqlrc")
     }
   end
 end

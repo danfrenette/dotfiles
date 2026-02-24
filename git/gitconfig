@@ -50,6 +50,8 @@
   cleanup = !git remote prune origin && git gc && git clean -df && git stash clear
   cleanup-merged = !git branch --merged | grep -v '^\\*\\|main\\|master' | xargs -n 1 git branch -d
   copysha = !git rev-parse HEAD | pbcopy
+  ###
+  df = diff --ignore-space-change --histogram --find-renames --find-copies --unified=10 --stat
 [core]
   excludesfile = ~/.gitignore
   autocrlf = input

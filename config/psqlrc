@@ -1,0 +1,60 @@
+\encoding unicode
+
+-- Custom prompt showing: user@host:port/database
+-- %n = username, %M = host, %> = port, %/ = database, %x = transaction status
+\set PROMPT1 '%n@%M:%>%/%x%# '
+\set PROMPT2 '%n@%M:%>%/%x%# '
+
+-- Use less as pager with horizontal scrolling for wide results
+\setenv PAGER 'less -S'
+
+-- Alternative: use pspg (if installed) for better PostgreSQL-specific pager
+-- \setenv PAGER 'pspg -s 16 --no-mouse'
+
+-- Turn off annoying pager for short output (optional)
+-- \pset pager_min_lines 20
+
+-- Border and format settings
+\pset border 1
+\pset format aligned
+\pset linestyle ascii
+
+-- Show timing for each query
+\timing on
+
+-- Verbose error reports
+\set VERBOSITY verbose
+
+-- History settings
+\set HISTSIZE 10000
+\set HISTFILE ~/.psql_history
+
+-- Save history after every statement (safer for crashes)
+\set HISTCONTROL ignoredups
+
+-- Auto-complete case insensitive
+\set COMP_KEYWORD_CASE upper
+
+-- Show NULL values as something visible instead of empty space
+\pset null '∅'
+
+-- Set expanded display to auto (useful for wide tables)
+\x auto
+
+-- Useful variables for common queries
+\set version 'SELECT version();'
+\set conninfo 'SELECT inet_server_addr() AS server_ip, inet_server_port() AS server_port, current_database() AS database, current_user AS user;'
+\set activity 'SELECT pid, usename, application_name, client_addr, state, query_start, now() - query_start AS duration, left(query, 100) AS query FROM pg_stat_activity WHERE state != \'idle\' AND query != current_query() ORDER BY duration DESC;'
+\set locks 'SELECT pid, locktype, mode, granted, relation::regclass FROM pg_locks WHERE NOT granted;'
+\set slow_queries 'SELECT pid, now() - query_start AS duration, query FROM pg_stat_activity WHERE now() - query_start > interval \'5 seconds\' AND state != \'idle\' ORDER BY duration DESC;'
+\set cache_hit 'SELECT sum(heap_blks_hit) / (sum(heap_blks_hit) + sum(heap_blks_read)) AS cache_hit_ratio FROM pg_statio_user_tables;'
+\set table_sizes 'SELECT nspname AS schema, relname AS table, pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size FROM pg_class c JOIN pg_namespace n ON (n.oid = c.relnamespace) WHERE nspname NOT IN (\'pg_catalog\', \'information_schema\') AND c.relkind = \'r\' ORDER BY pg_total_relation_size(c.oid) DESC;'
+\set vacuum_stats 'SELECT schemaname, relname, n_live_tup, n_dead_tup, last_vacuum, last_autovacuum, last_analyze, last_autoanalyze FROM pg_stat_user_tables WHERE n_dead_tup > 1000 ORDER BY n_dead_tup DESC;'
+\set indexes 'SELECT schemaname, tablename, indexname FROM pg_indexes WHERE schemaname = \'public\' ORDER BY tablename, indexname;'
+\set connections 'SELECT count(*) FROM pg_stat_activity;'
+
+-- Quick help command
+\set help '\echo \"\\nPostgreSQL Quick Reference:\\n=========================\\n:version     - Show PostgreSQL version\\n:conninfo    - Show connection info\\n:activity    - Show active queries\\n:locks       - Show waiting locks\\n:slow_queries- Show queries running > 5 seconds\\n:cache_hit   - Show cache hit ratio\\n:table_sizes- Show table sizes\\n:vacuum_stats- Show tables needing vacuum\\n:indexes     - Show indexes\\n:connections - Count active connections\\n\\n\\df         - List functions\\n\\dt         - List tables\\n\\d table    - Describe table\\n\\timing     - Toggle query timing\\n\\x          - Toggle expanded output\\n\\\"'
+
+-- Welcome message
+\echo 'PostgreSQL session started. Type :help for quick reference.'

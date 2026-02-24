@@ -79,6 +79,11 @@ function gcam {
   git aa; git commit -m "$*"
 }
 
+# Amend last commit without editing message (like gcaa but doesn't stage unstaged files)
+function gcan {
+  git commit --amend --no-edit
+}
+
 # Add specific files to git stash
 function shelf {
   git stash push -- $1
