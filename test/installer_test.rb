@@ -9,79 +9,78 @@ class InstallerTest < DotfilesTestCase
     @output = StringIO.new
     @mock_linker = MockLinker.new
     @mock_config = MockConfig.new
+    @mock_opencode_installer = MockOpencodeInstaller.new
   end
 
   def test_installer_responds_to_install
-    installer = Installer.new(output: @output, skip_brew: true)
+    installer = build_installer(skip_brew: true)
     assert_respond_to installer, :install
   end
 
   def test_install_outputs_linking_header
-    installer = Installer.new(
-      output: @output,
-      skip_brew: true,
-      linker: @mock_linker,
-      config: @mock_config
-    )
-    installer.install
+    build_installer(skip_brew: true).install
     assert_match(/Linking dotfiles/, @output.string)
   end
 
   def test_install_outputs_post_install_header
-    installer = Installer.new(
-      output: @output,
-      skip_brew: true,
-      linker: @mock_linker,
-      config: @mock_config
-    )
-    installer.install
+    build_installer(skip_brew: true).install
     assert_match(/Post-install/, @output.string)
   end
 
   def test_install_links_each_mapping
-    installer = Installer.new(
-      output: @output,
-      skip_brew: true,
-      linker: @mock_linker,
-      config: @mock_config
-    )
-    installer.install
+    build_installer(skip_brew: true).install
     assert_equal @mock_config.mappings.keys, @mock_linker.linked_sources
   end
 
   def test_install_logs_linked_files
-    installer = Installer.new(
-      output: @output,
-      skip_brew: true,
-      linker: @mock_linker,
-      config: @mock_config
-    )
-    installer.install
+    build_installer(skip_brew: true).install
     assert_match(/\[LINK\]/, @output.string)
   end
 
   def test_install_logs_completion_message
-    installer = Installer.new(
-      output: @output,
-      skip_brew: true,
-      linker: @mock_linker,
-      config: @mock_config
-    )
-    installer.install
+    build_installer(skip_brew: true).install
     assert_match(/Installation complete!/, @output.string)
   end
 
-  # Mock objects for dependency injection
+  def test_dry_run_logs_replace_and_backup_actions
+    @mock_linker.result = :would_replace
+    build_installer(skip_brew: true, dry_run: true).install
+
+    assert_match(/would back up .*\.backup/, @output.string)
+    assert_match(/would replace/, @output.string)
+    assert_match(/Dry run complete!/, @output.string)
+  end
+
+  def test_calls_opencode_installer
+    build_installer(skip_brew: true).install
+    assert_equal 1, @mock_opencode_installer.install_calls
+  end
+
+  private
+
+  def build_installer(skip_brew:, dry_run: false)
+    Installer.new(
+      output: @output,
+      skip_brew: skip_brew,
+      dry_run: dry_run,
+      linker: @mock_linker,
+      config: @mock_config,
+      opencode_installer: @mock_opencode_installer
+    )
+  end
+
   class MockLinker
+    attr_accessor :result
     attr_reader :linked_sources
 
     def initialize
       @linked_sources = []
+      @result = :linked
     end
 
     def link(source, _target)
       @linked_sources << source
-      :linked
+      result
     end
   end
 
@@ -99,6 +98,18 @@ class InstallerTest < DotfilesTestCase
 
     def brewfile_path
       "/nonexistent/Brewfile"
+    end
+  end
+
+  class MockOpencodeInstaller
+    attr_reader :install_calls
+
+    def initialize
+      @install_calls = 0
+    end
+
+    def install
+      @install_calls += 1
     end
   end
 end

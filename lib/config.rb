@@ -3,8 +3,8 @@
 # Defines mappings between dotfiles sources and their target locations
 class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
-  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings tmux_mappings ruby_mappings
-    psql_mappings].freeze
+  MAPPING_METHODS = %i[git_mappings zsh_mappings nvim_mappings opencode_mappings ghostty_mappings tmux_mappings
+    ruby_mappings psql_mappings].freeze
 
   def mappings
     MAPPING_METHODS.map { |m| send(m) }.reduce({}, :merge)

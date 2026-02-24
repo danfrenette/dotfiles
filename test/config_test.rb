@@ -68,7 +68,7 @@ class ConfigTest < DotfilesTestCase
 
     assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "build-confirm.md"))
     assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "reviewer.md"))
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "technical-writer.md"))
+    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "ticket-writer.md"))
   end
 
   def test_opencode_mappings_point_to_correct_targets

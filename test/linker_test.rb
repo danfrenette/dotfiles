@@ -116,6 +116,29 @@ class LinkerTest < DotfilesTestCase
     refute File.exist?("#{target}.backup")
   end
 
+  def test_dry_run_reports_would_link_without_changes
+    linker = Linker.new(dry_run: true)
+    source = create_file("source/config")
+    target = tmp_path("target/config")
+
+    result = linker.link(source, target)
+
+    assert_equal :would_link, result
+    refute File.exist?(target)
+  end
+
+  def test_dry_run_reports_would_replace_without_changes
+    linker = Linker.new(dry_run: true)
+    source = create_file("source/config", "new")
+    target = create_file("target/config", "old")
+
+    result = linker.link(source, target)
+
+    assert_equal :would_replace, result
+    assert_equal "old", File.read(target)
+    refute File.exist?("#{target}.backup")
+  end
+
   def test_backup_returns_backup_path
     path = create_file("myfile", "content")
 

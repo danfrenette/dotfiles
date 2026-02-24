@@ -1,22 +1,22 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require_relative "link_plan"
 
 # Creates symlinks from dotfiles to target locations
 class Linker
   BACKUP_SUFFIX = ".backup"
 
+  def initialize(dry_run: false)
+    @dry_run = dry_run
+  end
+
   def link(source, target)
-    source = File.expand_path(source)
-    target = File.expand_path(target)
+    plan = LinkPlan.new(source: source, target: target)
 
-    raise ArgumentError, "Source does not exist: #{source}" unless File.exist?(source)
+    raise ArgumentError, "Source does not exist: #{plan.source}" unless plan.source_exists?
 
-    return :already_linked if correctly_linked?(target, source)
-
-    backup(target) if File.exist?(target) || File.symlink?(target)
-    create_symlink(source, target)
-    :linked
+    execute_plan(plan)
   end
 
   def backup(path)
@@ -34,6 +34,18 @@ class Linker
   end
 
   private
+
+  attr_reader :dry_run
+
+  def execute_plan(plan)
+    return :already_linked if plan.action == :already_linked
+    return :would_replace if dry_run && plan.action == :replace
+    return :would_link if dry_run && plan.action == :link
+
+    backup(plan.target) if plan.action == :replace
+    create_symlink(plan.source, plan.target)
+    :linked
+  end
 
   def create_symlink(source, target)
     target_dir = File.dirname(target)
