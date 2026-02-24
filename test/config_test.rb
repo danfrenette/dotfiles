@@ -78,6 +78,19 @@ class ConfigTest < DotfilesTestCase
       mappings[@config.dotfiles_path("config", "opencode", "agent", "reviewer.md")]
   end
 
+  def test_mappings_include_ghostty_config
+    mappings = @config.mappings
+
+    assert mappings.key?(@config.dotfiles_path("config", "ghostty", "config"))
+  end
+
+  def test_ghostty_mapping_points_to_correct_target
+    mappings = @config.mappings
+
+    assert_equal @config.home_path(".config", "ghostty", "config"),
+      mappings[@config.dotfiles_path("config", "ghostty", "config")]
+  end
+
   def test_all_mapping_sources_are_absolute_paths
     @config.mappings.each_key do |source|
       assert source.start_with?("/"), "Source path should be absolute: #{source}"
