@@ -1,5 +1,4 @@
 # Taps
-tap "homebrew/bundle"
 tap "schpet/tap"
 
 # ==============================================================================
@@ -33,8 +32,6 @@ brew "lnav"               # Log file viewer
 # Casks (GUI Apps)
 # ==============================================================================
 
-cask "alfred"
-cask "bettersnaptool"
 cask "caffeine"
 cask "cleanshot"
 cask "cursor"
@@ -47,11 +44,10 @@ cask "microsoft-word"
 cask "nordpass"
 cask "obsidian"
 cask "postman"
+cask "raycast"
 cask "protonvpn"
 cask "qlcolorcode"       # QuickLook: syntax highlighting
 cask "qlmarkdown"        # QuickLook: markdown preview
-cask "quicklook-json"    # QuickLook: pretty JSON
 cask "slack"
 cask "spotify"
-cask "things"
 cask "zoom"
