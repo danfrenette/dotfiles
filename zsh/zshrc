@@ -138,3 +138,7 @@ export PATH=/Users/danfrenette/.opencode/bin:$PATH
 
 # bun completions
 [ -s "/Users/danfrenette/.bun/_bun" ] && source "/Users/danfrenette/.bun/_bun"
+
+# tailcode
+export PATH="/Users/danfrenette/.bun/bin:$PATH"
+

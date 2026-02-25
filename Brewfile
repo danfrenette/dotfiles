@@ -50,4 +50,5 @@ cask "qlcolorcode"       # QuickLook: syntax highlighting
 cask "qlmarkdown"        # QuickLook: markdown preview
 cask "slack"
 cask "spotify"
+cask "tailscale-app"
 cask "zoom"
