@@ -1,7 +1,7 @@
 source ~/.zplug/init.zsh
 
 zplug "zsh-users/zsh-syntax-highlighting", defer:2
-zplug load --verbose
+zplug load
 
 # zsh auto-suggestions: zsh-users/zsh-autosuggestions/
 source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
