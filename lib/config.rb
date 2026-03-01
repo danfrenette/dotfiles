@@ -5,7 +5,7 @@ class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
   MAPPING_METHODS = %i[
     git_mappings zsh_mappings nvim_mappings opencode_mappings ghostty_mappings tmux_mappings ruby_mappings
-    psql_mappings
+    psql_mappings cursor_mappings
   ].freeze
 
   def mappings
@@ -93,6 +93,12 @@ class Config
   def psql_mappings
     {
       dotfiles_path("config", "psqlrc") => home_path(".psqlrc")
+    }
+  end
+
+  def cursor_mappings
+    {
+      dotfiles_path("cursor", "commands") => home_path(".cursor", "commands")
     }
   end
 end
