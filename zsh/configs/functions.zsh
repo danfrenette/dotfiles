@@ -39,6 +39,47 @@ function g {
   fi
 }
 
+function gcompare {
+  local remote_url=$(git config --get remote.origin.url)
+  local current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+  # Convert SSH URL to HTTPS and remove .git suffix
+  remote_url=${remote_url/git@github.com:/https://github.com/}
+  remote_url=${remote_url%.git}
+
+  open "${remote_url}/compare/main...${current_branch}"
+}
+
+# Type commit messages with bare words (certain chars must be escaped)
+function gcm {
+  git commit -m "$*"
+}
+
+function gcam {
+  git aa; git commit -m "$*"
+}
+
+# Amend last commit without editing message (like gcaa but doesn't stage unstaged files)
+function gcan {
+  git commit --amend --no-edit
+}
+
+function gd {
+  if [[ -n "$1" ]]; then
+    git diff "$@" > /tmp/changes.diff && cursor /tmp/changes.diff
+  else
+    git diff > /tmp/changes.diff && cursor /tmp/changes.diff
+  fi
+}
+
+function gdc {
+  if [[ -n "$1" ]]; then
+    git diff --cached "$@" > /tmp/changes.diff && cursor /tmp/changes.diff
+  else
+    git diff --cached > /tmp/changes.diff && cursor /tmp/changes.diff
+  fi
+}
+
 # list Rails routes by grep
 function rrg {
   bin/rails routes | grep $1
@@ -70,20 +111,6 @@ function take {
   cd $1
 }
 
-# Type commit messages with bare words (certain chars must be escaped)
-function gcm {
-  git commit -m "$*"
-}
-
-function gcam {
-  git aa; git commit -m "$*"
-}
-
-# Amend last commit without editing message (like gcaa but doesn't stage unstaged files)
-function gcan {
-  git commit --amend --no-edit
-}
-
 # Add specific files to git stash
 function shelf {
   git stash push -- $1
@@ -104,13 +131,3 @@ function tks {
   tmux kill-session -t $1
 }
 
-function gcompare() {
-  local remote_url=$(git config --get remote.origin.url)
-  local current_branch=$(git rev-parse --abbrev-ref HEAD)
-
-  # Convert SSH URL to HTTPS and remove .git suffix
-  remote_url=${remote_url/git@github.com:/https://github.com/}
-  remote_url=${remote_url%.git}
-
-  open "${remote_url}/compare/main...${current_branch}"
-}
