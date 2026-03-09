@@ -9,7 +9,6 @@ class InstallerTest < DotfilesTestCase
     @output = StringIO.new
     @mock_linker = MockLinker.new
     @mock_config = MockConfig.new
-    @mock_opencode_installer = MockOpencodeInstaller.new
   end
 
   def test_installer_responds_to_install
@@ -51,11 +50,6 @@ class InstallerTest < DotfilesTestCase
     assert_match(/Dry run complete!/, @output.string)
   end
 
-  def test_calls_opencode_installer
-    build_installer(skip_brew: true).install
-    assert_equal 1, @mock_opencode_installer.install_calls
-  end
-
   private
 
   def build_installer(skip_brew:, dry_run: false)
@@ -64,8 +58,7 @@ class InstallerTest < DotfilesTestCase
       skip_brew: skip_brew,
       dry_run: dry_run,
       linker: @mock_linker,
-      config: @mock_config,
-      opencode_installer: @mock_opencode_installer
+      config: @mock_config
     )
   end
 
@@ -98,18 +91,6 @@ class InstallerTest < DotfilesTestCase
 
     def brewfile_path
       "/nonexistent/Brewfile"
-    end
-  end
-
-  class MockOpencodeInstaller
-    attr_reader :install_calls
-
-    def initialize
-      @install_calls = 0
-    end
-
-    def install
-      @install_calls += 1
     end
   end
 end

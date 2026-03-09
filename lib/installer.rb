@@ -2,18 +2,15 @@
 
 require_relative "linker"
 require_relative "config"
-require_relative "opencode_beta_installer"
 
 # Orchestrates the full dotfiles installation
 class Installer
-  def initialize(output: $stdout, skip_brew: false, dry_run: false, linker: nil, config: Config.new,
-    opencode_installer: nil)
+  def initialize(output: $stdout, skip_brew: false, dry_run: false, linker: nil, config: Config.new)
     @output = output
     @skip_brew = skip_brew
     @dry_run = dry_run
     @config = config
     @linker = linker || Linker.new(dry_run: dry_run)
-    @opencode_installer = opencode_installer || OpencodeBetaInstaller.new(output: output, dry_run: dry_run)
   end
 
   def install
@@ -24,7 +21,7 @@ class Installer
 
   private
 
-  attr_reader :output, :skip_brew, :dry_run, :linker, :config, :opencode_installer
+  attr_reader :output, :skip_brew, :dry_run, :linker, :config
 
   def install_brew_packages
     header "Installing Homebrew packages"
@@ -54,14 +51,8 @@ class Installer
 
   def post_install
     header "Post-install"
-    install_opencode_beta
     install_nvim_plugins
     log_completion_message
-  end
-
-  def install_opencode_beta
-    log "OpenCode:"
-    opencode_installer.install
   end
 
   def header(text)

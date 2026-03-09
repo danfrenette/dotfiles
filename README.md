@@ -26,8 +26,7 @@ This will:
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
 3. Symlink config files to their target locations (backing up replaced files to `.backup`)
-4. Install OpenCode beta if `opencode` is not already installed
-5. Install Neovim plugins
+4. Install Neovim plugins
 
 ### Manual Installation
 
