@@ -1,6 +1,7 @@
 ---
 description: Reviews code changes as a senior engineer following best practices
 mode: subagent
+model: anthropic/claude-sonnet-4-6
 tools:
   write: false
   edit: false

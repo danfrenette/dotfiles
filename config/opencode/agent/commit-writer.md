@@ -1,6 +1,7 @@
 ---
 description: Generates git commit messages from staged or unstaged changes
 mode: subagent
+model: anthropic/claude-sonnet-4-6
 tools:
   write: false
   edit: false

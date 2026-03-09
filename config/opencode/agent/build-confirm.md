@@ -1,6 +1,7 @@
 ---
 description: Build mode with manual approval for each file change
 mode: primary
+model: anthropic/claude-sonnet-4-6
 permission:
   edit: ask
   bash: ask
