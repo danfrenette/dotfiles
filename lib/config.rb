@@ -59,8 +59,6 @@ class Config
   def opencode_mappings
     {
       dotfiles_path("config", "opencode", "agent",
-        "build-confirm.md") => home_path(".config", "opencode", "agent", "build-confirm.md"),
-      dotfiles_path("config", "opencode", "agent",
         "commit-writer.md") => home_path(".config", "opencode", "agent", "commit-writer.md"),
       dotfiles_path("config", "opencode", "agent",
         "prd-writer.md") => home_path(".config", "opencode", "agent", "prd-writer.md"),

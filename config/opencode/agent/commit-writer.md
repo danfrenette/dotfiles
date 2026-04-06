@@ -11,6 +11,7 @@ permission:
     "git log*": allow
     "git status*": allow
     "git show*": allow
+    "git commit*": allow
     "*": deny
 ---
 
@@ -25,17 +26,39 @@ When asked to create a commit message:
 
 Rules for commit messages:
 
+- **ALWAYS** use conventional commit formatting
 - You are only allowed to READ information from git, NEVER execute actual git commands
-- Do NOT write conventional commit format (no `feat:`, `fix:`, etc.) - a commitizen plugin handles this
 - Sacrifice grammar for concision
 - Focus on WHAT the code accomplishes, not HOW
 - Make reasonable assumptions about business logic, or ask questions if unclear
-- Do NOT include `git commit` commands in output
 
-Output format:
+### Commit Message Structure
 
-```
-<title - one line, imperative mood, ~50 chars>
+<commit-message>
+    <type>feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert</type>
+    <scope>()</scope>
+    <description>A short, imperative summary of the change</description>
+    <body>(optional: more detailed explanation)</body>
+    <footer>(optional: e.g. BREAKING CHANGE: details, or issue references)</footer>
+    </commit-message>
 
-<description - bullet points or short paragraph explaining the why>
-```
+### Examples
+
+<examples>
+    <example>feat(parser): add ability to parse arrays</example>
+    <example>fix(ui): correct button alignment</example>
+    <example>docs: update README with usage instructions</example>
+    <example>refactor: improve performance of data processing</example>
+    <example>chore: update dependencies</example>
+    <example>feat!: send email on registration (BREAKING CHANGE: email service required)</example>
+</examples>
+
+### Validation
+
+<validation>
+    <type>Must be one of the allowed types. See <reference>https://www.conventionalcommits.org/en/v1.0.0/#specification</reference></type>
+    <scope>Optional, but recommended for clarity.</scope>
+    <description>Required. Use the imperative mood (e.g., "add", not "added").</description>
+    <body>Optional. Use for additional context.</body>
+    <footer>Use for breaking changes or issue references.</footer>
+</validation>

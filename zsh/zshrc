@@ -139,3 +139,5 @@ export NVM_DIR="$HOME/.config/nvm"
 # tailcode
 export PATH="/Users/danfrenette/.bun/bin:$PATH"
 
+
+. "$HOME/.local/bin/env"

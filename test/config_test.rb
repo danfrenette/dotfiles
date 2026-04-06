@@ -66,7 +66,6 @@ class ConfigTest < DotfilesTestCase
   def test_mappings_includes_opencode_agents
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "build-confirm.md"))
     assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "reviewer.md"))
     assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "ticket-writer.md"))
   end
