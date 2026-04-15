@@ -100,6 +100,7 @@ function precmd {
 
 source $DOTFILES/zsh/configs/aliases.zsh
 source $DOTFILES/zsh/configs/functions.zsh
+source $DOTFILES/zsh/configs/opencode.zsh
 source $DOTFILES/zsh/configs/plugins.zsh
 source $DOTFILES/zsh/configs/prompt.zsh
 
@@ -133,11 +134,15 @@ export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
+# dotfiles bin (before system paths to take precedence)
+export PATH="$DOTFILES/bin:$PATH"
+
 # bun completions
-[ -s "/Users/danfrenette/.bun/_bun" ] && source "/Users/danfrenette/.bun/_bun"
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 # tailcode
-export PATH="/Users/danfrenette/.bun/bin:$PATH"
+export PATH="$HOME/.bun/bin:$PATH"
 
 
-. "$HOME/.local/bin/env"
+# Local bin scripts
+export PATH="$HOME/.local/bin:$PATH"

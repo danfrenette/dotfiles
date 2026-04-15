@@ -1,0 +1,483 @@
+#!/bin/zsh
+# ==============================================================================
+# OpenCode Development Tools
+# Unified script for running local OpenCode development instances
+# ==============================================================================
+#
+# Usage: dev-dev-opencode [command] [options] [workspace]
+#
+# Commands:
+#   dev, d          Start OpenCode CLI dev mode (default)
+#   web, w          Start OpenCode web dev (background mode)
+#   web-fg, wf      Start OpenCode web dev (foreground mode)
+#   serve, s        Start OpenCode backend server only
+#   stop            Stop all running OpenCode dev processes
+#   status          Show status of OpenCode dev processes
+#   help, h         Show this help message
+#
+# Examples:
+#   dev-opencode                    # Start CLI dev in current directory
+#   dev-opencode dev /path/to/code  # Start CLI dev in specific directory
+#   dev-opencode web                # Start web dev servers (background)
+#   dev-opencode web-fg             # Start web dev servers (foreground)
+#   dev-opencode web --foreground   # Same as web-fg
+#
+# ==============================================================================
+
+set -euo pipefail
+
+# ==============================================================================
+# Configuration
+# ==============================================================================
+
+REPO="${HOME}/code/opencode"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/opencode-dev"
+WORKSPACE_FILE="$STATE_DIR/workspace"
+BACKEND_PID_FILE="$STATE_DIR/backend.pid"
+APP_PID_FILE="$STATE_DIR/app.pid"
+BACKEND_LOG="$STATE_DIR/backend.log"
+APP_LOG="$STATE_DIR/app.log"
+BACKEND_PORT=4096
+APP_PORT=4444
+
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
+
+require_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    print -u2 "opencode: missing required command: $1"
+    exit 1
+  fi
+}
+
+pid_is_running() {
+  local pid_file="$1"
+
+  if [[ ! -f "$pid_file" ]]; then
+    return 1
+  fi
+
+  local pid
+  pid="$(<"$pid_file")"
+
+  if [[ -z "$pid" ]]; then
+    return 1
+  fi
+
+  kill -0 "$pid" 2>/dev/null
+}
+
+port_is_listening() {
+  lsof -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+wait_for_port() {
+  local port="$1"
+  local label="$2"
+  local attempts=0
+
+  until port_is_listening "$port"; do
+    attempts=$((attempts + 1))
+    if (( attempts > 60 )); then
+      print -u2 "opencode: timed out waiting for $label on port $port"
+      exit 1
+    fi
+    sleep 0.5
+  done
+}
+
+get_tailnet_host() {
+  if command -v tailscale >/dev/null 2>&1; then
+    tailscale status --json 2>/dev/null | node -e '
+      const fs = require("fs");
+      try {
+        const data = JSON.parse(fs.readFileSync(0, "utf8"));
+        const host = (data.Self?.DNSName || data.CertDomains?.[0] || "").replace(/\.$/, "");
+        if (!host) process.exit(1);
+        process.stdout.write(host);
+      } catch {
+        process.exit(1);
+      }
+    ' 2>/dev/null || echo "localhost"
+  else
+    echo "localhost"
+  fi
+}
+
+resolve_workspace() {
+  local dir="${1:-}"
+
+  if [[ -z "$dir" && -f "$WORKSPACE_FILE" ]]; then
+    dir="$(<"$WORKSPACE_FILE")"
+  fi
+
+  if [[ -z "$dir" ]]; then
+    dir="$PWD"
+  fi
+
+  if [[ ! -d "$dir" ]]; then
+    print -u2 "opencode: workspace not found: $dir"
+    exit 1
+  fi
+
+  (
+    cd "$dir"
+    pwd -P
+  )
+}
+
+encode_workspace_slug() {
+  node -e '
+    const value = process.argv[1];
+    process.stdout.write(
+      Buffer.from(value, "utf8")
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/g, "")
+    );
+  ' "$1"
+}
+
+# ==============================================================================
+# Command Implementations
+# ==============================================================================
+
+cmd_help() {
+  cat << 'EOF'
+Usage: dev-opencode [command] [options] [workspace]
+
+Commands:
+  dev, d          Start OpenCode CLI dev mode (default)
+  web, w          Start OpenCode web dev (background mode)
+  web-fg, wf      Start OpenCode web dev (foreground mode)
+  serve, s        Start OpenCode backend server only
+  stop            Stop all running OpenCode dev processes
+  status          Show status of OpenCode dev processes
+  help, h         Show this help message
+
+Options:
+  --foreground, -f    Run in foreground (show logs, Ctrl+C to stop)
+
+Examples:
+  dev-opencode                    # Start CLI dev in current directory
+  dev-opencode dev /path/to/code  # Start CLI dev in specific directory
+  dev-opencode web                # Start web dev servers (background)
+  dev-opencode web-fg             # Start web dev servers (foreground)
+  dev-opencode web --foreground   # Same as web-fg
+  dev-opencode stop               # Kill all dev processes
+
+Environment:
+  REPO:           Path to dev-opencode repo (default: ~/code/opencode)
+  STATE_DIR:      Path for state files (default: ~/.local/state/opencode-dev)
+
+EOF
+}
+
+cmd_dev() {
+  local workspace="${1:-}"
+
+  if [[ ! -d "$REPO" ]]; then
+    print -u2 "opencode: repo not found at $REPO"
+    exit 1
+  fi
+
+  mkdir -p "$STATE_DIR"
+
+  local workspace_dir
+  workspace_dir="$(resolve_workspace "$workspace")"
+  print -r -- "$workspace_dir" > "$WORKSPACE_FILE"
+
+  # Pass the workspace directory as the first argument, then any additional args
+  exec bun run --cwd "$REPO/packages/opencode" --conditions=browser src/index.ts "$workspace_dir" "${@:2}"
+}
+
+cmd_serve() {
+  local workspace="${1:-}"
+  local extra_args=()
+
+  # Parse additional args
+  while (( $# > 0 )); do
+    case "$1" in
+      --hostname|--port|--cors)
+        extra_args+=("$1" "$2")
+        shift 2
+        ;;
+      *)
+        shift
+        ;;
+    esac
+  done
+
+  if [[ ! -d "$REPO" ]]; then
+    print -u2 "opencode: repo not found at $REPO"
+    exit 1
+  fi
+
+  mkdir -p "$STATE_DIR"
+
+  local workspace_dir
+  workspace_dir="$(resolve_workspace "$workspace")"
+  print -r -- "$workspace_dir" > "$WORKSPACE_FILE"
+
+  exec bun run --cwd "$REPO/packages/opencode" --conditions=browser src/index.ts serve --hostname 0.0.0.0 --port "$BACKEND_PORT" "${extra_args[@]}"
+}
+
+cmd_web() {
+  local foreground=0
+  local workspace_arg=""
+
+  # Parse args
+  while (( $# > 0 )); do
+    case "$1" in
+      --foreground|-f)
+        foreground=1
+        ;;
+      *)
+        if [[ -z "$workspace_arg" && -d "$1" ]]; then
+          workspace_arg="$1"
+        fi
+        ;;
+    esac
+    shift
+  done
+
+  require_command bun
+  require_command node
+  require_command lsof
+
+  if [[ ! -d "$REPO" ]]; then
+    print -u2 "opencode: repo not found at $REPO"
+    exit 1
+  fi
+
+  mkdir -p "$STATE_DIR"
+
+  local tailnet_host workspace_dir workspace_slug url
+  tailnet_host="$(get_tailnet_host)"
+  workspace_dir="$(resolve_workspace "$workspace_arg")"
+  workspace_slug="$(encode_workspace_slug "$workspace_dir")"
+  url="http://${tailnet_host}:${APP_PORT}/${workspace_slug}/session"
+
+  print -r -- "$workspace_dir" > "$WORKSPACE_FILE"
+
+  # Backend process
+  start_backend() {
+    if pid_is_running "$BACKEND_PID_FILE"; then
+      print "Backend already running (PID: $(<"$BACKEND_PID_FILE"))"
+      return
+    fi
+
+    if port_is_listening "$BACKEND_PORT"; then
+      print "Port $BACKEND_PORT already in use"
+      return
+    fi
+
+    if (( foreground )); then
+      bun run --cwd "$REPO/packages/opencode" --conditions=browser src/index.ts \
+        serve --hostname 0.0.0.0 --port "$BACKEND_PORT" --cors "http://${tailnet_host}:${APP_PORT}" &
+    else
+      nohup bun run --cwd "$REPO/packages/opencode" --conditions=browser src/index.ts \
+        serve --hostname 0.0.0.0 --port "$BACKEND_PORT" --cors "http://${tailnet_host}:${APP_PORT}" \
+        >"$BACKEND_LOG" 2>&1 &
+    fi
+    print -r -- $! > "$BACKEND_PID_FILE"
+  }
+
+  # App process
+  start_app() {
+    if pid_is_running "$APP_PID_FILE"; then
+      print "App already running (PID: $(<"$APP_PID_FILE"))"
+      return
+    fi
+
+    if port_is_listening "$APP_PORT"; then
+      print "Port $APP_PORT already in use"
+      return
+    fi
+
+    if (( foreground )); then
+      env VITE_OPENCODE_SERVER_HOST="$tailnet_host" VITE_OPENCODE_SERVER_PORT="$BACKEND_PORT" \
+        bun --cwd "$REPO/packages/app" dev -- --host 0.0.0.0 --port "$APP_PORT" &
+    else
+      nohup env VITE_OPENCODE_SERVER_HOST="$tailnet_host" VITE_OPENCODE_SERVER_PORT="$BACKEND_PORT" \
+        bun --cwd "$REPO/packages/app" dev -- --host 0.0.0.0 --port "$APP_PORT" \
+        >"$APP_LOG" 2>&1 &
+    fi
+    print -r -- $! > "$APP_PID_FILE"
+  }
+
+  # Cleanup function for foreground mode
+  cleanup() {
+    print "\n\nShutting down dev-opencode web dev..."
+    if [[ -f "$BACKEND_PID_FILE" ]]; then
+      kill "$(<"$BACKEND_PID_FILE")" 2>/dev/null || true
+      rm -f "$BACKEND_PID_FILE"
+    fi
+    if [[ -f "$APP_PID_FILE" ]]; then
+      kill "$(<"$APP_PID_FILE")" 2>/dev/null || true
+      rm -f "$APP_PID_FILE"
+    fi
+    exit 0
+  }
+
+  start_backend
+  start_app
+
+  wait_for_port "$BACKEND_PORT" "dev-opencode backend"
+  wait_for_port "$APP_PORT" "dev-opencode web app"
+
+  if (( foreground )); then
+    trap cleanup INT TERM EXIT
+    print "\n========================================"
+    print "OpenCode web dev is available at: $url"
+    print "Workspace: $workspace_dir"
+    print "Backend PID: $(<"$BACKEND_PID_FILE")"
+    print "App PID: $(<"$APP_PID_FILE")"
+    print "========================================"
+    print "\nPress Ctrl+C to stop both processes\n"
+    wait
+  else
+    print "OpenCode web dev is available at: $url"
+    print "Workspace: $workspace_dir"
+    print "Backend log: $BACKEND_LOG"
+    print "App log: $APP_LOG"
+
+    if command -v open >/dev/null 2>&1; then
+      open "$url"
+    fi
+  fi
+}
+
+cmd_stop() {
+  local killed=0
+
+  if [[ -f "$BACKEND_PID_FILE" ]]; then
+    local pid
+    pid="$(<"$BACKEND_PID_FILE")"
+    if kill "$pid" 2>/dev/null; then
+      print "Stopped backend (PID: $pid)"
+      killed=$((killed + 1))
+    fi
+    rm -f "$BACKEND_PID_FILE"
+  fi
+
+  if [[ -f "$APP_PID_FILE" ]]; then
+    local pid
+    pid="$(<"$APP_PID_FILE")"
+    if kill "$pid" 2>/dev/null; then
+      print "Stopped app (PID: $pid)"
+      killed=$((killed + 1))
+    fi
+    rm -f "$APP_PID_FILE"
+  fi
+
+  if (( killed == 0 )); then
+    print "No running OpenCode processes found"
+  else
+    print "Stopped $killed process(es)"
+  fi
+}
+
+cmd_status() {
+  local running=0
+
+  print "OpenCode Dev Status"
+  print "==================="
+  print "State directory: $STATE_DIR"
+  print "Repo: $REPO"
+  print ""
+
+  if [[ -f "$WORKSPACE_FILE" ]]; then
+    print "Workspace: $(<"$WORKSPACE_FILE")"
+  else
+    print "Workspace: (none set)"
+  fi
+  print ""
+
+  if pid_is_running "$BACKEND_PID_FILE"; then
+    local pid
+    pid="$(<"$BACKEND_PID_FILE")"
+    print "Backend: running (PID: $pid, port: $BACKEND_PORT)"
+    running=$((running + 1))
+  else
+    print "Backend: not running (port: $BACKEND_PORT)"
+    rm -f "$BACKEND_PID_FILE"
+  fi
+
+  if pid_is_running "$APP_PID_FILE"; then
+    local pid
+    pid="$(<"$APP_PID_FILE")"
+    print "App: running (PID: $pid, port: $APP_PORT)"
+    running=$((running + 1))
+  else
+    print "App: not running (port: $APP_PORT)"
+    rm -f "$APP_PID_FILE"
+  fi
+
+  print ""
+  if (( running > 0 )); then
+    local tailnet_host
+    tailnet_host="$(get_tailnet_host)"
+    print "URL: http://${tailnet_host}:${APP_PORT}/"
+  fi
+}
+
+# ==============================================================================
+# Main
+# ==============================================================================
+
+main() {
+  local cmd="${1:-dev}"
+
+  # Handle shorthand flags
+  case "$cmd" in
+    -h|--help)
+      cmd="help"
+      ;;
+    -f|--foreground)
+      cmd="web-fg"
+      ;;
+  esac
+
+  case "$cmd" in
+    dev|d)
+      shift || true
+      cmd_dev "$@"
+      ;;
+    web|w)
+      shift || true
+      cmd_web "$@"
+      ;;
+    web-fg|wf)
+      shift || true
+      cmd_web --foreground "$@"
+      ;;
+    serve|s)
+      shift || true
+      cmd_serve "$@"
+      ;;
+    stop)
+      cmd_stop
+      ;;
+    status|st)
+      cmd_status
+      ;;
+    help|h)
+      cmd_help
+      ;;
+    *)
+      # If first arg looks like a path, treat as dev with workspace
+      if [[ -d "$cmd" ]]; then
+        cmd_dev "$@"
+      else
+        print -u2 "opencode: unknown command: $cmd"
+        print -u2 "Run 'dev-opencode help' for usage"
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+main "$@"
