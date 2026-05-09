@@ -63,20 +63,6 @@ class ConfigTest < DotfilesTestCase
       mappings[@config.dotfiles_path("config", "nvim", "lua", "options.lua")]
   end
 
-  def test_mappings_includes_opencode_agents
-    mappings = @config.mappings
-
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "reviewer.md"))
-    assert mappings.key?(@config.dotfiles_path("config", "opencode", "agent", "ticket-writer.md"))
-  end
-
-  def test_opencode_mappings_point_to_correct_targets
-    mappings = @config.mappings
-
-    assert_equal @config.home_path(".config", "opencode", "agent", "reviewer.md"),
-      mappings[@config.dotfiles_path("config", "opencode", "agent", "reviewer.md")]
-  end
-
   def test_mappings_include_ghostty_config
     mappings = @config.mappings
 
@@ -113,5 +99,13 @@ class ConfigTest < DotfilesTestCase
     path = @config.home_path(".config", "nvim")
 
     assert_equal File.join(Dir.home, ".config", "nvim"), path
+  end
+
+  def test_skills_source_root_uses_matt_pocock_layout
+    assert_equal @config.dotfiles_path("skills"), @config.skills_source_root
+  end
+
+  def test_opencode_skills_target_points_to_user_skill_directory
+    assert_equal @config.home_path(".config", "opencode", "skill"), @config.opencode_skills_target
   end
 end

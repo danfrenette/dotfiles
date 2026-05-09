@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+$LOAD_PATH.unshift File.expand_path("../lib", __dir__)
+
+require "skill_installer"
+
+dry_run = ARGV.include?("--dry-run") || ARGV.include?("-n")
+
+puts ""
+puts "=== Installing skills ==="
+puts ""
+
+SkillInstaller.new(dry_run: dry_run).install
+
+puts ""
+puts dry_run ? "Skills dry run complete!" : "Skills installation complete!"

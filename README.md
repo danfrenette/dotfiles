@@ -26,7 +26,8 @@ This will:
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
 3. Symlink config files to their target locations (backing up replaced files to `.backup`)
-4. Install Neovim plugins
+4. Install agent skills into OpenCode
+5. Install Neovim plugins
 
 ### Manual Installation
 
@@ -42,6 +43,12 @@ bundle install
 
 # Dry run (shows what would be backed up/replaced)
 ./install.rb --dry-run
+
+# Install or update agent skills only
+bin/install-skills
+
+# Dry run skills installation only
+bin/install-skills --dry-run
 ```
 
 ### Development
@@ -59,8 +66,18 @@ bundle exec rake brew       # Install Homebrew packages only
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **OpenCode** - Custom AI agent configs (reviewer, commit-writer, ticket-writer, prd-writer)
+- **OpenCode** - Custom AI skills installed from `skills/**/SKILL.md`
 - **Homebrew** - CLI tools and casks via Brewfile
+
+## Agent Skills
+
+Skills follow the same source layout used by [mattpocock/skills](https://github.com/mattpocock/skills):
+
+```text
+skills/<category>/<skill-name>/SKILL.md
+```
+
+Run `bin/install-skills` to symlink each skill directory into `~/.config/opencode/skill`. This installer is standalone so skills can be updated frequently without running the full dotfiles bootstrap.
 
 ## Adding New Dotfiles
 
