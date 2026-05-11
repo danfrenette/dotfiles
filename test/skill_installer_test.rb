@@ -7,7 +7,8 @@ class SkillInstallerTest < DotfilesTestCase
   def setup
     super
     @output = StringIO.new
-    @config = MockConfig.new(tmp_path("skills"), tmp_path("opencode/skill"))
+    @remote_sources = FakeRemoteSources.new
+    @config = MockConfig.new(tmp_path("skills"), tmp_path("opencode/skill"), tmp_path("skills.yml"), tmp_path("skills.lock"), tmp_path("cache"))
   end
 
   def test_discovers_skill_directories_from_skill_files
@@ -32,6 +33,17 @@ class SkillInstallerTest < DotfilesTestCase
     installer.install
 
     target = File.join(@config.opencode_skills_target, "tdd")
+    assert File.symlink?(target)
+    assert_equal source, File.readlink(target)
+  end
+
+  def test_links_remote_skill_directories
+    source = create_skill("remote/reviewer")
+    @remote_sources.sources = {"reviewer" => source}
+
+    installer.install
+
+    target = File.join(@config.opencode_skills_target, "reviewer")
     assert File.symlink?(target)
     assert_equal source, File.readlink(target)
   end
@@ -62,7 +74,7 @@ class SkillInstallerTest < DotfilesTestCase
   def test_dry_run_does_not_link_skill
     create_skill("engineering/tdd")
 
-    SkillInstaller.new(output: @output, dry_run: true, config: @config).install
+    SkillInstaller.new(output: @output, dry_run: true, config: @config, remote_sources: @remote_sources).install
 
     refute File.exist?(File.join(@config.opencode_skills_target, "tdd"))
     assert_match(/\[DRY\]/, @output.string)
@@ -80,7 +92,7 @@ class SkillInstallerTest < DotfilesTestCase
   private
 
   def installer
-    SkillInstaller.new(output: @output, config: @config)
+    SkillInstaller.new(output: @output, config: @config, remote_sources: @remote_sources)
   end
 
   def create_skill(path)
@@ -90,11 +102,23 @@ class SkillInstallerTest < DotfilesTestCase
   end
 
   class MockConfig
-    attr_reader :skills_source_root, :opencode_skills_target
+    attr_reader :skills_source_root, :opencode_skills_target, :skills_manifest_path, :skills_lock_path, :skills_cache_dir
 
-    def initialize(skills_source_root, opencode_skills_target)
+    def initialize(skills_source_root, opencode_skills_target, skills_manifest_path, skills_lock_path, skills_cache_dir)
       @skills_source_root = skills_source_root
       @opencode_skills_target = opencode_skills_target
+      @skills_manifest_path = skills_manifest_path
+      @skills_lock_path = skills_lock_path
+      @skills_cache_dir = skills_cache_dir
+    end
+  end
+
+  class FakeRemoteSources
+    attr_writer :sources
+
+    def sources(update: false)
+      @update = update
+      @sources || {}
     end
   end
 end

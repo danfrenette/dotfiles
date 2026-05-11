@@ -3,22 +3,25 @@
 require "fileutils"
 require_relative "config"
 require_relative "linker"
+require_relative "remote_skills/sources"
 
 # Installs agent skills from the repo-wide skills directory.
 class SkillInstaller
   EXCLUDED_PATH_PARTS = %w[node_modules deprecated].freeze
 
-  def initialize(output: $stdout, dry_run: false, config: Config.new, linker: nil)
+  def initialize(output: $stdout, dry_run: false, update_skills: false, config: Config.new, linker: nil, remote_sources: nil)
     @output = output
     @dry_run = dry_run
+    @update_skills = update_skills
     @config = config
     @linker = linker || Linker.new(dry_run: dry_run)
+    @remote_sources = remote_sources || RemoteSkills::Sources.new(config: config)
   end
 
   def install
     guard_against_recursive_destination
 
-    skills = skill_sources
+    skills = skill_sources.merge(remote_skill_sources)
     if skills.empty?
       log "  [SKIP] no skills found in #{config.skills_source_root}"
       return
@@ -44,7 +47,11 @@ class SkillInstaller
 
   private
 
-  attr_reader :output, :dry_run, :config, :linker
+  attr_reader :output, :dry_run, :update_skills, :config, :linker, :remote_sources
+
+  def remote_skill_sources
+    remote_sources.sources(update: update_skills)
+  end
 
   def excluded_path?(path)
     path.split(File::SEPARATOR).any? { |part| EXCLUDED_PATH_PARTS.include?(part) }

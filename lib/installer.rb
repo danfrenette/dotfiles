@@ -6,13 +6,14 @@ require_relative "skill_installer"
 
 # Orchestrates the full dotfiles installation
 class Installer
-  def initialize(output: $stdout, skip_brew: false, dry_run: false, linker: nil, config: Config.new, skill_installer: nil)
+  def initialize(output: $stdout, skip_brew: false, dry_run: false, update_skills: false, linker: nil, config: Config.new, skill_installer: nil)
     @output = output
     @skip_brew = skip_brew
     @dry_run = dry_run
+    @update_skills = update_skills
     @config = config
     @linker = linker || Linker.new(dry_run: dry_run)
-    @skill_installer = skill_installer || SkillInstaller.new(output: output, dry_run: dry_run, config: config)
+    @skill_installer = skill_installer || SkillInstaller.new(output: output, dry_run: dry_run, update_skills: update_skills, config: config)
   end
 
   def install
@@ -23,7 +24,7 @@ class Installer
 
   private
 
-  attr_reader :output, :skip_brew, :dry_run, :linker, :config, :skill_installer
+  attr_reader :output, :skip_brew, :dry_run, :update_skills, :linker, :config, :skill_installer
 
   def install_brew_packages
     header "Installing Homebrew packages"

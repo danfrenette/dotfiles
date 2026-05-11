@@ -108,4 +108,16 @@ class ConfigTest < DotfilesTestCase
   def test_opencode_skills_target_points_to_user_skill_directory
     assert_equal @config.home_path(".config", "opencode", "skill"), @config.opencode_skills_target
   end
+
+  def test_skills_manifest_path_points_to_repo_manifest
+    assert_equal @config.dotfiles_path("skills.yml"), @config.skills_manifest_path
+  end
+
+  def test_skills_lock_path_points_to_repo_lockfile
+    assert_equal @config.dotfiles_path("skills.lock"), @config.skills_lock_path
+  end
+
+  def test_skills_cache_dir_points_to_user_cache
+    assert_equal @config.home_path(".cache", "dotfiles-skills"), @config.skills_cache_dir
+  end
 end

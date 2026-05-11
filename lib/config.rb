@@ -36,6 +36,18 @@ class Config
     home_path(".config", "opencode", "skill")
   end
 
+  def skills_manifest_path
+    dotfiles_path("skills.yml")
+  end
+
+  def skills_lock_path
+    dotfiles_path("skills.lock")
+  end
+
+  def skills_cache_dir
+    home_path(".cache", "dotfiles-skills")
+  end
+
   private
 
   def git_mappings
