@@ -52,6 +52,16 @@ class InstallerTest < DotfilesTestCase
     assert @mock_skill_installer.installed
   end
 
+  def test_skills_only_installs_skills_without_linking_dotfiles
+    build_installer(skip_brew: false, skills_only: true).install
+
+    assert @mock_skill_installer.installed
+    assert_empty @mock_linker.linked_sources
+    assert_match(/Installing skills/, @output.string)
+    refute_match(/Linking dotfiles/, @output.string)
+    refute_match(/Post-install/, @output.string)
+  end
+
   def test_dry_run_logs_replace_and_backup_actions
     @mock_linker.result = :would_replace
     build_installer(skip_brew: true, dry_run: true).install
@@ -63,11 +73,12 @@ class InstallerTest < DotfilesTestCase
 
   private
 
-  def build_installer(skip_brew:, dry_run: false)
+  def build_installer(skip_brew:, dry_run: false, skills_only: false)
     Installer.new(
       output: @output,
       skip_brew: skip_brew,
       dry_run: dry_run,
+      skills_only: skills_only,
       linker: @mock_linker,
       config: @mock_config,
       skill_installer: @mock_skill_installer

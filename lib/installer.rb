@@ -6,17 +6,20 @@ require_relative "skill_installer"
 
 # Orchestrates the full dotfiles installation
 class Installer
-  def initialize(output: $stdout, skip_brew: false, dry_run: false, update_skills: false, linker: nil, config: Config.new, skill_installer: nil)
+  def initialize(output: $stdout, skip_brew: false, dry_run: false, update_skills: false, skills_only: false, linker: nil, config: Config.new, skill_installer: nil)
     @output = output
     @skip_brew = skip_brew
     @dry_run = dry_run
     @update_skills = update_skills
+    @skills_only = skills_only
     @config = config
     @linker = linker || Linker.new(dry_run: dry_run)
     @skill_installer = skill_installer || SkillInstaller.new(output: output, dry_run: dry_run, update_skills: update_skills, config: config)
   end
 
   def install
+    return install_skills if skills_only
+
     install_brew_packages unless skip_brew
     link_dotfiles
     post_install
@@ -24,7 +27,12 @@ class Installer
 
   private
 
-  attr_reader :output, :skip_brew, :dry_run, :update_skills, :linker, :config, :skill_installer
+  attr_reader :output, :skip_brew, :dry_run, :update_skills, :skills_only, :linker, :config, :skill_installer
+
+  def install_skills
+    header "Installing skills"
+    skill_installer.install
+  end
 
   def install_brew_packages
     header "Installing Homebrew packages"
@@ -53,8 +61,7 @@ class Installer
   end
 
   def post_install
-    header "Installing skills"
-    skill_installer.install
+    install_skills
 
     header "Post-install"
     install_nvim_plugins
