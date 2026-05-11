@@ -2,11 +2,12 @@
 
 require "test_helper"
 require "installer"
+require "reporters/test_reporter"
 
 class InstallerTest < DotfilesTestCase
   def setup
     super
-    @output = StringIO.new
+    @reporter = Reporters::TestReporter.new
     @mock_linker = MockLinker.new
     @mock_config = MockConfig.new
     @mock_skill_installer = MockSkillInstaller.new
@@ -17,19 +18,19 @@ class InstallerTest < DotfilesTestCase
     assert_respond_to installer, :install
   end
 
-  def test_install_outputs_linking_header
+  def test_install_reports_linking_phase
     build_installer(skip_brew: true).install
-    assert_match(/Linking dotfiles/, @output.string)
+    assert_includes @reporter.phases, "Linking dotfiles"
   end
 
-  def test_install_outputs_post_install_header
+  def test_install_reports_post_install_phase
     build_installer(skip_brew: true).install
-    assert_match(/Post-install/, @output.string)
+    assert_includes @reporter.phases, "Post-install"
   end
 
-  def test_install_outputs_skills_header
+  def test_install_reports_skills_phase
     build_installer(skip_brew: true).install
-    assert_match(/Installing skills/, @output.string)
+    assert_includes @reporter.phases, "Installing skills"
   end
 
   def test_install_links_each_mapping
@@ -37,14 +38,14 @@ class InstallerTest < DotfilesTestCase
     assert_equal @mock_config.mappings.keys, @mock_linker.linked_sources
   end
 
-  def test_install_logs_linked_files
+  def test_install_reports_linked_actions
     build_installer(skip_brew: true).install
-    assert_match(/\[LINK\]/, @output.string)
+    assert_includes @reporter.action_types, :linked
   end
 
-  def test_install_logs_completion_message
+  def test_install_reports_completion
     build_installer(skip_brew: true).install
-    assert_match(/Installation complete!/, @output.string)
+    assert @reporter.completion_reported
   end
 
   def test_install_installs_skills
@@ -57,25 +58,24 @@ class InstallerTest < DotfilesTestCase
 
     assert @mock_skill_installer.installed
     assert_empty @mock_linker.linked_sources
-    assert_match(/Installing skills/, @output.string)
-    refute_match(/Linking dotfiles/, @output.string)
-    refute_match(/Post-install/, @output.string)
+    assert_includes @reporter.phases, "Installing skills"
+    refute_includes @reporter.phases, "Linking dotfiles"
+    refute_includes @reporter.phases, "Post-install"
   end
 
-  def test_dry_run_logs_replace_and_backup_actions
+  def test_dry_run_reports_would_replace_actions
     @mock_linker.result = :would_replace
     build_installer(skip_brew: true, dry_run: true).install
 
-    assert_match(/would back up .*\.backup/, @output.string)
-    assert_match(/would replace/, @output.string)
-    assert_match(/Dry run complete!/, @output.string)
+    assert_includes @reporter.action_types, :would_replace
+    assert @reporter.dry_completion_reported
   end
 
   private
 
   def build_installer(skip_brew:, dry_run: false, skills_only: false)
     Installer.new(
-      output: @output,
+      reporter: @reporter,
       skip_brew: skip_brew,
       dry_run: dry_run,
       skills_only: skills_only,

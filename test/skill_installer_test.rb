@@ -2,11 +2,12 @@
 
 require "test_helper"
 require "skill_installer"
+require "reporters/test_reporter"
 
 class SkillInstallerTest < DotfilesTestCase
   def setup
     super
-    @output = StringIO.new
+    @reporter = Reporters::TestReporter.new
     @remote_sources = FakeRemoteSources.new
     @config = MockConfig.new(tmp_path("skills"), tmp_path("opencode/skill"), tmp_path("skills.yml"), tmp_path("skills.lock"), tmp_path("cache"))
   end
@@ -56,7 +57,8 @@ class SkillInstallerTest < DotfilesTestCase
 
     installer.install
 
-    assert_match(/\[OK\].*tdd/, @output.string)
+    assert @reporter.action_named("tdd")
+    assert_equal :already_linked, @reporter.action_named("tdd")[:type]
   end
 
   def test_backs_up_existing_target_directory
@@ -74,10 +76,10 @@ class SkillInstallerTest < DotfilesTestCase
   def test_dry_run_does_not_link_skill
     create_skill("engineering/tdd")
 
-    SkillInstaller.new(output: @output, dry_run: true, config: @config, remote_sources: @remote_sources).install
+    SkillInstaller.new(dry_run: true, config: @config, remote_sources: @remote_sources, reporter: @reporter).install
 
     refute File.exist?(File.join(@config.opencode_skills_target, "tdd"))
-    assert_match(/\[DRY\]/, @output.string)
+    assert_includes @reporter.action_types, :would_link
   end
 
   def test_raises_when_destination_symlinks_into_source_root
@@ -92,7 +94,7 @@ class SkillInstallerTest < DotfilesTestCase
   private
 
   def installer
-    SkillInstaller.new(output: @output, config: @config, remote_sources: @remote_sources)
+    SkillInstaller.new(config: @config, remote_sources: @remote_sources, reporter: @reporter)
   end
 
   def create_skill(path)
