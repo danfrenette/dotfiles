@@ -60,7 +60,7 @@ class RemoteSkillsTest < DotfilesTestCase
     sources = build_sources(cache: cache, resolver: ExplodingResolver.new).sources
 
     assert_equal File.join(@cache_root, "checkout", "skills", "reviewer"), sources["reviewer"]
-    assert_equal [["https://example.com/skills.git", "locked456"]], cache.checkouts
+    assert_equal [["https://example.com/skills.git", "locked456", "skills/reviewer"]], cache.checkouts
   end
 
   private
@@ -111,8 +111,8 @@ class RemoteSkillsTest < DotfilesTestCase
       @checkouts = []
     end
 
-    def checkout(repo, sha)
-      checkouts << [repo, sha]
+    def checkout(repo, sha, sparse_path: nil)
+      checkouts << [repo, sha, sparse_path]
       File.join(@root, "checkout")
     end
   end

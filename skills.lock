@@ -1,0 +1,7 @@
+---
+remote_skills:
+- name: impeccable
+  repo: https://github.com/pbakaus/impeccable
+  path: ".opencode/skills/impeccable"
+  ref: main
+  sha: e587004ee42883dad40d14cd0f5e1b21ae1933df

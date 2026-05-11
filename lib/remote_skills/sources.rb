@@ -21,7 +21,7 @@ module RemoteSkills
       lock.write(entries, resolver) if update
 
       entries.to_h do |entry|
-        checkout = cache.checkout(entry.repo, lock.sha_for(entry))
+        checkout = cache.checkout(entry.repo, lock.sha_for(entry), sparse_path: entry.path)
         [entry.name, File.join(checkout, entry.path)]
       end
     end

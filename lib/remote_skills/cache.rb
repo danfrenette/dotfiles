@@ -9,14 +9,15 @@ module RemoteSkills
       @root = root
     end
 
-    def checkout(repo, sha)
+    def checkout(repo, sha, sparse_path: nil)
       path = path_for(repo)
       FileUtils.mkdir_p(root)
 
       if Dir.exist?(File.join(path, ".git"))
         git(path, "fetch", "--quiet", "origin")
+        configure_sparse_checkout(path, sparse_path) if sparse_path
       else
-        run("git", "clone", "--quiet", repo, path)
+        clone_sparse(repo, path, sparse_path)
       end
 
       git(path, "checkout", "--quiet", sha)
@@ -30,6 +31,15 @@ module RemoteSkills
     def path_for(repo)
       slug = repo.sub(%r{\A[^:]+://}, "").gsub(/[^A-Za-z0-9._-]+/, "-").gsub(/[.]+/, "-")
       File.join(root, slug)
+    end
+
+    def clone_sparse(repo, path, sparse_path)
+      run("git", "clone", "--filter=blob:none", "--sparse", "--quiet", repo, path)
+      configure_sparse_checkout(path, sparse_path) if sparse_path
+    end
+
+    def configure_sparse_checkout(path, sparse_path)
+      git(path, "sparse-checkout", "set", "--no-cone", sparse_path)
     end
 
     def git(path, *args)
