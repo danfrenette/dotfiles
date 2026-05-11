@@ -5,3 +5,8 @@ remote_skills:
   path: ".opencode/skills/impeccable"
   ref: main
   sha: e587004ee42883dad40d14cd0f5e1b21ae1933df
+- name: improve-codebase-architecture
+  repo: https://github.com/mattpocock/skills
+  path: skills/engineering/improve-codebase-architecture
+  ref: main
+  sha: 9f2e0bd0ea776eb6372eb81fa8a4a47814a8404a

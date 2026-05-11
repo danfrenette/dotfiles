@@ -3,3 +3,7 @@ remote_skills:
     repo: https://github.com/pbakaus/impeccable
     path: .opencode/skills/impeccable
     ref: main
+  - name: improve-codebase-architecture
+    repo: https://github.com/mattpocock/skills
+    path: skills/engineering/improve-codebase-architecture
+    ref: main
