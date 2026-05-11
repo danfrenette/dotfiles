@@ -1,0 +1,36 @@
+git:
+  git/gitconfig: ~/.gitconfig
+  git/gitignore: ~/.gitignore
+  git/gitmessage: ~/.gitmessage
+  git/ignore: ~/.config/git/ignore
+
+zsh:
+  zsh/zshrc: ~/.zshrc
+  zsh/zprofile: ~/.zprofile
+
+nvim:
+  config/nvim/init.lua: ~/.config/nvim/init.lua
+  config/nvim/lua/options.lua: ~/.config/nvim/lua/options.lua
+  config/nvim/lua/keymaps.lua: ~/.config/nvim/lua/keymaps.lua
+  config/nvim/lua/plugins.lua: ~/.config/nvim/lua/plugins.lua
+  config/nvim/lua/autocmds.lua: ~/.config/nvim/lua/autocmds.lua
+
+ghostty:
+  config/ghostty/config: ~/.config/ghostty/config
+
+tmux:
+  tmux/tmux.conf: ~/.tmux.conf
+
+ruby:
+  ruby/irbrc: ~/.irbrc
+  ruby/pryrc: ~/.pryrc
+
+psql:
+  config/psqlrc: ~/.psqlrc
+
+cursor:
+  cursor/commands: ~/.cursor/commands
+
+bin:
+  bin/opencode-dev: ~/.local/bin/opencode-dev
+  bin/opencode-dev-web: ~/.local/bin/opencode-dev-web
