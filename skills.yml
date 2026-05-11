@@ -7,3 +7,7 @@ remote_skills:
     repo: https://github.com/mattpocock/skills
     path: skills/engineering/improve-codebase-architecture
     ref: main
+  - name: write-a-skill
+    repo: https://github.com/mattpocock/skills
+    path: skills/productivity/write-a-skill
+    ref: main

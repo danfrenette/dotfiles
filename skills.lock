@@ -10,3 +10,8 @@ remote_skills:
   path: skills/engineering/improve-codebase-architecture
   ref: main
   sha: 9f2e0bd0ea776eb6372eb81fa8a4a47814a8404a
+- name: write-a-skill
+  repo: https://github.com/mattpocock/skills
+  path: skills/productivity/write-a-skill
+  ref: main
+  sha: 9f2e0bd0ea776eb6372eb81fa8a4a47814a8404a
