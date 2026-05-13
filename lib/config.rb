@@ -50,7 +50,15 @@ class Config
     home_path(".cache", "dotfiles-skills")
   end
 
+  def local_skills
+    Array(skills_data["local_skills"])
+  end
+
   private
+
+  def skills_data
+    @skills_data ||= YAML.safe_load_file(skills_manifest_path) || {}
+  end
 
   def mappings_data
     @mappings_data ||= YAML.safe_load_file(MAPPINGS_PATH) || {}

@@ -1,3 +1,11 @@
+local_skills:
+  - engineering/commit-writer
+  - engineering/prd-to-ralph-converter
+  - engineering/prd-writer
+  - engineering/reviewer
+  - engineering/ticket-writer
+  - engineering/unslop
+
 remote_skills:
   - name: impeccable
     repo: https://github.com/pbakaus/impeccable

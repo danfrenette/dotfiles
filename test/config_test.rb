@@ -120,4 +120,9 @@ class ConfigTest < DotfilesTestCase
   def test_skills_cache_dir_points_to_user_cache
     assert_equal @config.home_path(".cache", "dotfiles-skills"), @config.skills_cache_dir
   end
+
+  def test_local_skills_returns_explicit_manifest_paths
+    assert_includes @config.local_skills, "engineering/commit-writer"
+    assert_includes @config.local_skills, "engineering/reviewer"
+  end
 end

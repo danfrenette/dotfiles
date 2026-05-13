@@ -8,120 +8,75 @@ class InstallerTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
-    @mock_linker = MockLinker.new
-    @mock_config = MockConfig.new
-    @mock_skill_installer = MockSkillInstaller.new
+    @skills_root = tmp_path("skills")
+    @skills_target = tmp_path("opencode/skill")
+    @skills_manifest = tmp_path("skills.yml")
+    @skills_lock = tmp_path("skills.lock")
+    @skills_cache = tmp_path("cache")
   end
 
-  def test_installer_responds_to_install
-    installer = build_installer(skip_brew: true)
-    assert_respond_to installer, :install
-  end
+  def test_full_install_runs_expected_phases_and_completion
+    create_skill("engineering/tdd")
+    build_installer(skip_brew: true, local_skills: ["engineering/tdd"]).install
 
-  def test_install_reports_linking_phase
-    build_installer(skip_brew: true).install
-    assert_includes @reporter.phases, "Linking dotfiles"
-  end
-
-  def test_install_reports_post_install_phase
-    build_installer(skip_brew: true).install
-    assert_includes @reporter.phases, "Post-install"
-  end
-
-  def test_install_reports_skills_phase
-    build_installer(skip_brew: true).install
-    assert_includes @reporter.phases, "Installing skills"
-  end
-
-  def test_install_links_each_mapping
-    build_installer(skip_brew: true).install
-    assert_equal @mock_config.mappings.keys, @mock_linker.linked_sources
-  end
-
-  def test_install_reports_linked_actions
-    build_installer(skip_brew: true).install
-    assert_includes @reporter.action_types, :linked
-  end
-
-  def test_install_reports_completion
-    build_installer(skip_brew: true).install
+    assert_equal ["Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
     assert @reporter.completion_reported
+    assert_reported_action @reporter, :linked, name: "tdd"
   end
 
-  def test_install_installs_skills
-    build_installer(skip_brew: true).install
-    assert @mock_skill_installer.installed
+  def test_installs_explicit_local_skills_from_manifest
+    create_skill("engineering/tdd")
+    build_installer(skip_brew: true, local_skills: ["engineering/tdd"]).install
+
+    assert_symlink skill_target("tdd"), to: File.join(@skills_root, "engineering", "tdd")
   end
 
   def test_skills_only_installs_skills_without_linking_dotfiles
-    build_installer(skip_brew: false, skills_only: true).install
+    create_skill("engineering/tdd")
+    build_installer(skip_brew: false, skills_only: true, local_skills: ["engineering/tdd"]).install
 
-    assert @mock_skill_installer.installed
-    assert_empty @mock_linker.linked_sources
+    assert_symlink skill_target("tdd")
     assert_includes @reporter.phases, "Installing skills"
     refute_includes @reporter.phases, "Linking dotfiles"
     refute_includes @reporter.phases, "Post-install"
   end
 
-  def test_dry_run_reports_would_replace_actions
-    @mock_linker.result = :would_replace
-    build_installer(skip_brew: true, dry_run: true).install
+  def test_dry_run_reports_would_link_actions
+    create_skill("engineering/tdd")
+    build_installer(skip_brew: true, dry_run: true, local_skills: ["engineering/tdd"]).install
 
-    assert_includes @reporter.action_types, :would_replace
+    assert_includes @reporter.action_types, :would_link
     assert @reporter.dry_completion_reported
   end
 
   private
 
-  def build_installer(skip_brew:, dry_run: false, skills_only: false)
+  def build_installer(skip_brew:, dry_run: false, skills_only: false, local_skills: [])
+    write_skills_manifest(@skills_manifest, local_skills: local_skills)
+
+    config = TestConfig.new(
+      skills_source_root: @skills_root,
+      opencode_skills_target: @skills_target,
+      local_skills: local_skills,
+      skills_manifest_path: @skills_manifest,
+      skills_lock_path: @skills_lock,
+      skills_cache_dir: @skills_cache
+    )
+
     Installer.new(
       reporter: @reporter,
       skip_brew: skip_brew,
       dry_run: dry_run,
       skills_only: skills_only,
-      linker: @mock_linker,
-      config: @mock_config,
-      skill_installer: @mock_skill_installer
+      config: config
     )
   end
 
-  class MockLinker
-    attr_accessor :result
-    attr_reader :linked_sources
-
-    def initialize
-      @linked_sources = []
-      @result = :linked
-    end
-
-    def link(source, _target)
-      @linked_sources << source
-      result
-    end
+  def create_skill(path)
+    super(path, root: @skills_root)
   end
 
-  class MockSkillInstaller
-    attr_reader :installed
-
-    def install
-      @installed = true
-    end
-  end
-
-  class MockConfig
-    def mappings
-      {
-        "/tmp/dotfiles/gitconfig" => "/tmp/home/.gitconfig",
-        "/tmp/dotfiles/zshrc" => "/tmp/home/.zshrc"
-      }
-    end
-
-    def nvim_init_target
-      "/nonexistent/path/init.lua"
-    end
-
-    def brewfile_path
-      "/nonexistent/Brewfile"
-    end
+  def skill_target(name)
+    File.join(@skills_target, name)
   end
 end

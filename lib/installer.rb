@@ -3,10 +3,11 @@
 require_relative "linker"
 require_relative "config"
 require_relative "skill_installer"
+require_relative "remote_skills/sources"
 require_relative "reporters/console_reporter"
 
 class Installer
-  def initialize(skip_brew: false, dry_run: false, update_skills: false, skills_only: false, linker: nil, config: Config.new, skill_installer: nil, reporter: nil)
+  def initialize(skip_brew: false, dry_run: false, update_skills: false, skills_only: false, linker: nil, config: Config.new, reporter: nil)
     @skip_brew = skip_brew
     @dry_run = dry_run
     @update_skills = update_skills
@@ -14,7 +15,6 @@ class Installer
     @config = config
     @linker = linker || Linker.new(dry_run: dry_run)
     @reporter = reporter || Reporters::ConsoleReporter.new
-    @skill_installer = skill_installer || SkillInstaller.new(dry_run: dry_run, update_skills: update_skills, config: config, reporter: @reporter)
   end
 
   def install
@@ -27,11 +27,45 @@ class Installer
 
   private
 
-  attr_reader :skip_brew, :dry_run, :update_skills, :skills_only, :linker, :config, :skill_installer, :reporter
+  attr_reader :skip_brew, :dry_run, :update_skills, :skills_only, :linker, :config, :reporter
 
   def install_skills
+    guard_against_recursive_skills_destination
+
     reporter.report_phase("Installing skills")
-    skill_installer.install
+    skills = local_skills.merge(remote_skills)
+
+    if skills.empty?
+      reporter.report_warning("no skills found in #{config.skills_source_root}")
+      return
+    end
+
+    skill_installer = SkillInstaller.new(dry_run: dry_run, linker: linker, reporter: reporter)
+    skill_installer.install(skills, target_dir: config.opencode_skills_target)
+  end
+
+  def local_skills
+    config.local_skills.to_h do |path|
+      source = File.join(config.skills_source_root, path)
+      [File.basename(path), source]
+    end
+  end
+
+  def remote_skills
+    remote_sources = RemoteSkills::Sources.new(config: config)
+    remote_sources.sources(update: update_skills)
+  end
+
+  def guard_against_recursive_skills_destination
+    return unless File.symlink?(config.opencode_skills_target)
+
+    destination = File.realpath(config.opencode_skills_target)
+    source_root = File.realpath(config.skills_source_root)
+    return unless destination == source_root || destination.start_with?("#{source_root}/")
+
+    raise "#{config.opencode_skills_target} is a symlink into this repo (#{destination})"
+  rescue Errno::ENOENT
+    nil
   end
 
   def install_brew_packages

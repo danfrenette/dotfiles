@@ -4,13 +4,20 @@ require "minitest/autorun"
 require "fileutils"
 require "tmpdir"
 require "stringio"
+require "yaml"
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "linker"
 require "config"
+require "support/assertions"
+require "support/skill_fixtures"
+require "support/test_config"
 
 class DotfilesTestCase < Minitest::Test
+  include Assertions
+  include SkillFixtures
+
   def setup
     @tmpdir = Dir.mktmpdir("dotfiles-test")
   end

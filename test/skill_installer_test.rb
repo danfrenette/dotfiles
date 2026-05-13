@@ -8,119 +8,76 @@ class SkillInstallerTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
-    @remote_sources = FakeRemoteSources.new
-    @config = MockConfig.new(tmp_path("skills"), tmp_path("opencode/skill"), tmp_path("skills.yml"), tmp_path("skills.lock"), tmp_path("cache"))
+    @linker = Linker.new
+    @target_dir = tmp_path("target/skills")
   end
 
-  def test_discovers_skill_directories_from_skill_files
-    tdd = create_skill("engineering/tdd")
-    reviewer = create_skill("engineering/reviewer")
+  def test_links_each_skill
+    source = create_dir("source/tdd")
+    skills = {"tdd" => source}
 
-    skills = installer.skill_sources
+    installer.install(skills, target_dir: @target_dir)
 
-    assert_equal tdd, skills["tdd"]
-    assert_equal reviewer, skills["reviewer"]
-  end
-
-  def test_excludes_deprecated_skills
-    create_skill("deprecated/old-skill")
-
-    assert_empty installer.skill_sources
-  end
-
-  def test_links_each_skill_directory
-    source = create_skill("engineering/tdd")
-
-    installer.install
-
-    target = File.join(@config.opencode_skills_target, "tdd")
-    assert File.symlink?(target)
-    assert_equal source, File.readlink(target)
-  end
-
-  def test_links_remote_skill_directories
-    source = create_skill("remote/reviewer")
-    @remote_sources.sources = {"reviewer" => source}
-
-    installer.install
-
-    target = File.join(@config.opencode_skills_target, "reviewer")
-    assert File.symlink?(target)
-    assert_equal source, File.readlink(target)
+    target = File.join(@target_dir, "tdd")
+    assert_symlink target, to: source
   end
 
   def test_skips_already_linked_skill
-    source = create_skill("engineering/tdd")
-    target = File.join(@config.opencode_skills_target, "tdd")
-    FileUtils.mkdir_p(File.dirname(target))
+    source = create_dir("source/tdd")
+    FileUtils.mkdir_p(@target_dir)
+    target = File.join(@target_dir, "tdd")
     File.symlink(source, target)
+    skills = {"tdd" => source}
 
-    installer.install
+    installer.install(skills, target_dir: @target_dir)
 
-    assert @reporter.action_named("tdd")
-    assert_equal :already_linked, @reporter.action_named("tdd")[:type]
+    assert_reported_action @reporter, :already_linked, name: "tdd"
   end
 
   def test_backs_up_existing_target_directory
-    source = create_skill("engineering/tdd")
-    target = create_dir(File.join(@config.opencode_skills_target, "tdd"))
+    source = create_dir("source/tdd")
+    target = create_dir(File.join(@target_dir, "tdd"))
     create_file(File.join(target, "old.md"), "old")
+    skills = {"tdd" => source}
 
-    installer.install
+    installer.install(skills, target_dir: @target_dir)
 
-    assert File.symlink?(target)
-    assert_equal source, File.readlink(target)
+    assert_symlink target, to: source
     assert File.exist?("#{target}.backup/old.md")
   end
 
   def test_dry_run_does_not_link_skill
-    create_skill("engineering/tdd")
+    source = create_dir("source/tdd")
+    skills = {"tdd" => source}
+    dry_linker = Linker.new(dry_run: true)
+    dry_installer = SkillInstaller.new(linker: dry_linker, reporter: @reporter)
 
-    SkillInstaller.new(dry_run: true, config: @config, remote_sources: @remote_sources, reporter: @reporter).install
+    dry_installer.install(skills, target_dir: @target_dir)
 
-    refute File.exist?(File.join(@config.opencode_skills_target, "tdd"))
-    assert_includes @reporter.action_types, :would_link
+    refute_symlink File.join(@target_dir, "tdd")
+    assert_reported_action @reporter, :would_link, name: "tdd"
   end
 
-  def test_raises_when_destination_symlinks_into_source_root
-    create_dir(@config.skills_source_root)
-    FileUtils.mkdir_p(File.dirname(@config.opencode_skills_target))
-    File.symlink(@config.skills_source_root, @config.opencode_skills_target)
+  def test_reports_warning_when_no_skills
+    installer.install({}, target_dir: @target_dir)
 
-    error = assert_raises(RuntimeError) { installer.install }
-    assert_match(/symlink into this repo/, error.message)
+    assert_includes @reporter.warnings, "no skills to install"
+  end
+
+  def test_links_multiple_skills
+    tdd_source = create_dir("source/tdd")
+    reviewer_source = create_dir("source/reviewer")
+    skills = {"tdd" => tdd_source, "reviewer" => reviewer_source}
+
+    installer.install(skills, target_dir: @target_dir)
+
+    assert_symlink File.join(@target_dir, "tdd")
+    assert_symlink File.join(@target_dir, "reviewer")
   end
 
   private
 
   def installer
-    SkillInstaller.new(config: @config, remote_sources: @remote_sources, reporter: @reporter)
-  end
-
-  def create_skill(path)
-    skill_dir = File.join(@config.skills_source_root, path)
-    create_file(File.join(skill_dir, "SKILL.md"), "---\nname: #{File.basename(path)}\n---\n")
-    skill_dir
-  end
-
-  class MockConfig
-    attr_reader :skills_source_root, :opencode_skills_target, :skills_manifest_path, :skills_lock_path, :skills_cache_dir
-
-    def initialize(skills_source_root, opencode_skills_target, skills_manifest_path, skills_lock_path, skills_cache_dir)
-      @skills_source_root = skills_source_root
-      @opencode_skills_target = opencode_skills_target
-      @skills_manifest_path = skills_manifest_path
-      @skills_lock_path = skills_lock_path
-      @skills_cache_dir = skills_cache_dir
-    end
-  end
-
-  class FakeRemoteSources
-    attr_writer :sources
-
-    def sources(update: false)
-      @update = update
-      @sources || {}
-    end
+    SkillInstaller.new(linker: @linker, reporter: @reporter)
   end
 end
