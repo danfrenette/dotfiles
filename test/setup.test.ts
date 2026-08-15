@@ -65,6 +65,333 @@ afterEach(async () => {
 });
 
 describe("runSetup", () => {
+  it("uses an existing Homebrew executable to apply the repository Brewfile", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    const brewfile = join(repositoryRoot, "Brewfile");
+    await writeFile(brewfile, 'brew "git"\n');
+    const commands: Array<{ command: string; args: string[] }> = [];
+    const output: string[] = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async (executable) =>
+          executable === "brew" ? "/custom/bin/brew" : undefined,
+        platform: () => "darwin",
+        run: async (command, args) => {
+          commands.push({ command, args });
+          return { exitCode: 0 };
+        },
+        write: (message) => output.push(message),
+      },
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(output.join("\n")).toContain(
+      "Homebrew is already available at /custom/bin/brew",
+    );
+    expect(output.join("\n")).toContain(
+      `run /custom/bin/brew bundle --file=${brewfile}`,
+    );
+    expect(commands).toEqual([
+      {
+        command: "/custom/bin/brew",
+        args: ["bundle", `--file=${brewfile}`],
+      },
+    ]);
+  });
+
+  it("installs missing Homebrew, locates it, and applies the Brewfile", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    const brewfile = join(repositoryRoot, "Brewfile");
+    await writeFile(brewfile, 'brew "git"\n');
+    const commands: Array<{ command: string; args: string[] }> = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async (executable) =>
+          executable === "/opt/homebrew/bin/brew" ? executable : undefined,
+        platform: () => "darwin",
+        run: async (command, args) => {
+          commands.push({ command, args });
+          return { exitCode: 0 };
+        },
+        write: () => undefined,
+      },
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "install-homebrew",
+      "brew-bundle",
+    ]);
+    expect(commands).toEqual([
+      {
+        command: "/bin/bash",
+        args: [
+          "-c",
+          '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"',
+        ],
+      },
+      {
+        command: "/opt/homebrew/bin/brew",
+        args: ["bundle", `--file=${brewfile}`],
+      },
+    ]);
+  });
+
+  it("fails all selected phases before mutation when the Brewfile is missing", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "new contents\n" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await writeFile(target, "current contents\n");
+
+    const result = await runSetup({
+      command: {
+        detect: async () => {
+          throw new Error("detection should not run");
+        },
+        platform: () => "darwin",
+        write: () => undefined,
+      },
+      homeRoot,
+      phases: ["homebrew", "mappings"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.warnings).toEqual([
+      `Missing Brewfile: ${join(repositoryRoot, "Brewfile")}`,
+    ]);
+    expect(result.plan).toEqual([]);
+    expect(await readFile(target, "utf8")).toBe("current contents\n");
+  });
+
+  it("rejects a Brewfile directory before any selected phase mutates", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "new contents\n" },
+    );
+    await mkdir(join(repositoryRoot, "Brewfile"));
+    const homeRoot = await temporaryDirectory();
+    const commands: string[] = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async () => undefined,
+        platform: () => "darwin",
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 0 };
+        },
+        write: () => undefined,
+      },
+      homeRoot,
+      phases: ["homebrew", "mappings"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.warnings).toEqual([
+      `Brewfile must be a readable file: ${join(repositoryRoot, "Brewfile")}`,
+    ]);
+    expect(commands).toEqual([]);
+    await expect(lstat(join(homeRoot, "target"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("dry-runs Homebrew without installer or bundle execution", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const commands: string[] = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async () => undefined,
+        platform: () => "darwin",
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 0 };
+        },
+        write: () => undefined,
+      },
+      dryRun: true,
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "install-homebrew",
+      "brew-bundle",
+    ]);
+    expect(commands).toEqual([]);
+  });
+
+  it("stops before bundle and mappings when the Homebrew installer fails", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "contents\n" },
+    );
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const homeRoot = await temporaryDirectory();
+    const commands: string[] = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async () => undefined,
+        platform: () => "darwin",
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 17 };
+        },
+        write: () => undefined,
+      },
+      homeRoot,
+      phases: ["homebrew", "mappings"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.warnings).toEqual([
+      "Homebrew installer failed with exit code 17",
+    ]);
+    expect(commands).toEqual(["/bin/bash"]);
+    await expect(lstat(join(homeRoot, "target"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("fails clearly when Homebrew remains unavailable after installation", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const commands: string[] = [];
+
+    const result = await runSetup({
+      command: {
+        detect: async () => undefined,
+        platform: () => "darwin",
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 0 };
+        },
+        write: () => undefined,
+      },
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.warnings).toEqual([
+      "Homebrew installation completed, but the brew executable could not be found",
+    ]);
+    expect(commands).toEqual(["/bin/bash"]);
+  });
+
+  it("stops before mappings when brew bundle fails", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "contents\n" },
+    );
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup({
+      command: {
+        detect: async () => "/custom/bin/brew",
+        platform: () => "darwin",
+        run: async () => ({ exitCode: 9 }),
+        write: () => undefined,
+      },
+      homeRoot,
+      phases: ["homebrew", "mappings"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.warnings).toEqual(["brew bundle failed with exit code 9"]);
+    await expect(lstat(join(homeRoot, "target"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("does not build mappings during a Homebrew-only run", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+
+    const result = await runSetup({
+      command: {
+        detect: async () => "/custom/bin/brew",
+        platform: () => "darwin",
+        run: async () => ({ exitCode: 0 }),
+        write: () => undefined,
+      },
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "homebrew-available",
+      "brew-bundle",
+    ]);
+  });
+
+  it("runs Homebrew and mappings when both default phases are selected", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "contents\n" },
+    );
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup({
+      command: {
+        detect: async () => "/custom/bin/brew",
+        platform: () => "darwin",
+        run: async () => ({ exitCode: 0 }),
+        write: () => undefined,
+      },
+      homeRoot,
+      prompt: {
+        choosePhases: async () => ["homebrew", "mappings"],
+        confirm: async () => true,
+      },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "homebrew-available",
+      "brew-bundle",
+      "create-link",
+    ]);
+    expect(await readlink(join(homeRoot, "target"))).toBe(
+      join(repositoryRoot, "source"),
+    );
+  });
+
   it("copies a regular file while preserving its mode", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: copy\n    source: script\n    target: bin/script\n",

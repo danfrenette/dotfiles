@@ -22,14 +22,16 @@ pnpm install
 pnpm run setup
 ```
 
-`pnpm run setup` currently installs dotfile mappings. It presents an itemized plan,
-asks for confirmation, and moves replaced targets to an adjacent `.backup` path.
+`pnpm run setup` installs Homebrew packages and dotfile mappings. It presents an
+itemized plan, asks for confirmation, and moves replaced mapping targets to an
+adjacent `.backup` path.
 
 For automation or previewing changes:
 
 ```bash
 pnpm run setup --only mappings --dry-run
 pnpm run setup --only mappings --yes
+pnpm run setup --only homebrew --dry-run
 ```
 
 The Ruby installer remains available while its remaining phases are migrated:

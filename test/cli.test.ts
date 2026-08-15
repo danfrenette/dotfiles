@@ -15,7 +15,22 @@ describe("setup executable", () => {
     ]);
 
     expect(result.stdout).toContain("Usage: pnpm run setup [options]");
+    expect(result.stdout).toContain("--only homebrew");
     expect(result.stdout).toContain("--only mappings");
+    expect(result.stderr).toBe("");
+  });
+
+  it("accepts a Homebrew-only dry run without package mutation", async () => {
+    const result = await execute(process.execPath, [
+      "--import",
+      "tsx",
+      "src/cli.ts",
+      "--only",
+      "homebrew",
+      "--dry-run",
+    ]);
+
+    expect(result.stdout).toContain("brew bundle --file=");
     expect(result.stderr).toBe("");
   });
 

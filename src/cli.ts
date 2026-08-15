@@ -1,5 +1,8 @@
+import { execFile, spawn } from "node:child_process";
+import { constants } from "node:fs";
+import { access } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { confirm, isCancel, multiselect } from "@clack/prompts";
@@ -11,6 +14,7 @@ const help = `Usage: pnpm run setup [options]
 Options:
   --dry-run        Print the complete plan without making changes
   --yes            Apply the plan without confirmation
+  --only homebrew  Run only the Homebrew phase
   --only mappings  Run only the mappings phase
   --help            Show this help`;
 
@@ -30,7 +34,7 @@ function parseArguments(args: string[]): CliOptions {
     else if (argument === "--help" || argument === "-h") options.help = true;
     else if (argument === "--only") {
       const phase = args[index + 1];
-      if (phase !== "mappings")
+      if (phase !== "homebrew" && phase !== "mappings")
         throw new Error(
           `Invalid phase for --only: ${phase ?? "missing value"}`,
         );
@@ -41,6 +45,36 @@ function parseArguments(args: string[]): CliOptions {
     }
   }
   return options;
+}
+
+async function detectExecutable(
+  executable: string,
+): Promise<string | undefined> {
+  if (isAbsolute(executable)) {
+    try {
+      await access(executable, constants.X_OK);
+      return executable;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return new Promise((resolveDetection) => {
+    execFile("/usr/bin/which", [executable], (error, stdout) => {
+      resolveDetection(error ? undefined : stdout.trim() || undefined);
+    });
+  });
+}
+
+async function runCommand(
+  command: string,
+  args: string[],
+): Promise<{ exitCode: number }> {
+  return new Promise((resolveRun, reject) => {
+    const child = spawn(command, args, { stdio: "inherit" });
+    child.on("error", reject);
+    child.on("close", (code) => resolveRun({ exitCode: code ?? 1 }));
+  });
 }
 
 export async function main(args = process.argv.slice(2)): Promise<number> {
@@ -60,7 +94,9 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
 
   const result = await runSetup({
     command: {
+      detect: detectExecutable,
       platform: () => process.platform,
+      run: runCommand,
       write: (message) => console.log(message),
     },
     dryRun: options.dryRun,
@@ -69,9 +105,12 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     prompt: {
       choosePhases: async () => {
         const answer = await multiselect({
-          initialValues: ["mappings"],
+          initialValues: ["homebrew", "mappings"],
           message: "Select setup phases",
-          options: [{ label: "Dotfile mappings", value: "mappings" }],
+          options: [
+            { label: "Homebrew packages", value: "homebrew" },
+            { label: "Dotfile mappings", value: "mappings" },
+          ],
           required: true,
         });
         return isCancel(answer) ? [] : (answer as Phase[]);

@@ -1,25 +1,31 @@
+import {
+  applyHomebrewPlan,
+  buildHomebrewPlan,
+  type CommandAdapter,
+  type HomebrewPlanItem,
+  homebrewInstallerCommand,
+} from "./homebrew.js";
 import { applyMappingPlan } from "./mappings/apply.js";
 import {
   buildMappingPlan,
   type MappingPlan,
-  type PlanItem,
+  type PlanItem as MappingPlanItem,
 } from "./mappings/plan.js";
 
-export type { PlanItem } from "./mappings/plan.js";
+export type PlanItem = HomebrewPlanItem | MappingPlanItem;
 
-export type Phase = "mappings";
+export type Phase = "homebrew" | "mappings";
 
 export interface SetupResult {
   exitCode: number;
-  plan: MappingPlan;
+  plan: PlanItem[];
   warnings: string[];
 }
 
 export interface SetupOptions {
-  command: {
+  command: CommandAdapter & {
     platform(): NodeJS.Platform;
     write(message: string): void;
-    run?(command: string, args: string[]): Promise<number>;
   };
   dryRun?: boolean;
   homeRoot: string;
@@ -34,6 +40,12 @@ export interface SetupOptions {
 
 function describePlanItem(item: PlanItem): string {
   switch (item.action) {
+    case "homebrew-available":
+      return `Homebrew is already available at ${item.executable}`;
+    case "install-homebrew":
+      return `run ${homebrewInstallerCommand}`;
+    case "brew-bundle":
+      return `run ${item.executable ?? "brew"} bundle --file=${item.brewfile}`;
     case "create-parent":
       return `create directory ${item.path}`;
     case "remove-backup":
@@ -55,17 +67,28 @@ function describePlanItem(item: PlanItem): string {
 
 export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   const warnings: string[] = [];
-  let plan: MappingPlan = [];
+  const plan: PlanItem[] = [];
+  let homebrewPlan: HomebrewPlanItem[] = [];
+  let mappingPlan: MappingPlan = [];
 
   try {
     if (options.command.platform() !== "darwin")
       throw new Error("Setup is supported only on macOS");
 
     const phases = options.phases ?? (await options.prompt.choosePhases());
-    if (!phases.includes("mappings"))
-      throw new Error("No setup phases selected");
+    if (phases.length === 0) throw new Error("No setup phases selected");
 
-    plan = await buildMappingPlan(options.repositoryRoot, options.homeRoot);
+    if (phases.includes("homebrew"))
+      homebrewPlan = await buildHomebrewPlan(
+        options.repositoryRoot,
+        options.command,
+      );
+    if (phases.includes("mappings"))
+      mappingPlan = await buildMappingPlan(
+        options.repositoryRoot,
+        options.homeRoot,
+      );
+    plan.push(...homebrewPlan, ...mappingPlan);
     options.command.write(
       plan.map((item) => `- ${describePlanItem(item)}`).join("\n"),
     );
@@ -76,7 +99,9 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
       return { exitCode: 0, plan, warnings };
     }
 
-    await applyMappingPlan(plan);
+    if (phases.includes("homebrew"))
+      await applyHomebrewPlan(homebrewPlan, options.command);
+    if (phases.includes("mappings")) await applyMappingPlan(mappingPlan);
     return { exitCode: 0, plan, warnings };
   } catch (error) {
     const warning = error instanceof Error ? error.message : String(error);
