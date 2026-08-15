@@ -18,10 +18,21 @@ If you find any of them useful, let me know.
 ```bash
 git clone https://github.com/danfrenette/dotfiles.git ~/code/dotfiles
 cd ~/code/dotfiles
-./bootstrap.sh
+pnpm install
+pnpm run setup
 ```
 
-This will:
+`pnpm run setup` currently installs dotfile mappings. It presents an itemized plan,
+asks for confirmation, and moves replaced targets to an adjacent `.backup` path.
+
+For automation or previewing changes:
+
+```bash
+pnpm run setup --only mappings --dry-run
+pnpm run setup --only mappings --yes
+```
+
+The Ruby installer remains available while its remaining phases are migrated:
 
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
