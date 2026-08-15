@@ -1,18 +1,22 @@
+import { execFileSync } from "node:child_process";
 import {
+  chmod,
   lstat,
   mkdir,
   mkdtemp,
+  readdir,
   readFile,
   readlink,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { runSetup } from "../src/setup.js";
+import { runSetup, type SetupOptions } from "../src/setup.js";
 
 const temporaryDirectories: string[] = [];
 
@@ -39,6 +43,19 @@ async function createRepository(
   return repositoryRoot;
 }
 
+function mappingSetupOptions(
+  repositoryRoot: string,
+  homeRoot: string,
+): SetupOptions {
+  return {
+    command: { platform: () => "darwin", write: () => undefined },
+    homeRoot,
+    phases: ["mappings"],
+    prompt: { choosePhases: async () => [], confirm: async () => true },
+    repositoryRoot,
+  };
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories
@@ -48,6 +65,287 @@ afterEach(async () => {
 });
 
 describe("runSetup", () => {
+  it("copies a regular file while preserving its mode", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: script\n    target: bin/script\n",
+      { script: "#!/bin/sh\necho test\n" },
+    );
+    const source = join(repositoryRoot, "script");
+    await chmod(source, 0o751);
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "bin/script");
+    const output: string[] = [];
+
+    const result = await runSetup({
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
+      command: {
+        platform: () => "darwin",
+        write: (message) => output.push(message),
+      },
+    });
+    expect(output.join("\n")).toContain(`copy ${source} to ${target}`);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.plan).toContainEqual({
+      action: "create-copy",
+      source,
+      target,
+    });
+    expect(await readFile(target, "utf8")).toBe("#!/bin/sh\necho test\n");
+    expect((await stat(target)).mode & 0o7777).toBe(0o751);
+  });
+
+  it("copies a nested directory recursively", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: app\n    target: .config/app\n",
+      {
+        "app/config.json": '{"enabled":true}\n',
+        "app/nested/value.txt": "nested contents\n",
+      },
+    );
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(
+      await readFile(join(homeRoot, ".config/app/config.json"), "utf8"),
+    ).toBe('{"enabled":true}\n');
+    expect(
+      await readFile(join(homeRoot, ".config/app/nested/value.txt"), "utf8"),
+    ).toBe("nested contents\n");
+  });
+
+  it("preserves a symlink inside a copied directory", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: app\n    target: .config/app\n",
+      { "app/shared.txt": "shared contents\n" },
+    );
+    await symlink("shared.txt", join(repositoryRoot, "app/current.txt"));
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    const copiedLink = join(homeRoot, ".config/app/current.txt");
+    expect((await lstat(copiedLink)).isSymbolicLink()).toBe(true);
+    expect(await readlink(copiedLink)).toBe("shared.txt");
+  });
+
+  it("copies a top-level broken source symlink verbatim", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      {},
+    );
+    await symlink("missing", join(repositoryRoot, "source"));
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect((await lstat(target)).isSymbolicLink()).toBe(true);
+    expect(await readlink(target)).toBe("missing");
+  });
+
+  it("leaves an unchanged copy in place without creating a backup", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      { "source/nested/file": "contents\n" },
+    );
+    await chmod(join(repositoryRoot, "source/nested"), 0o751);
+    await symlink("nested/file", join(repositoryRoot, "source/current"));
+    const homeRoot = await temporaryDirectory();
+    const output: string[] = [];
+    const options: SetupOptions = {
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
+      command: {
+        platform: () => "darwin",
+        write: (message: string) => output.push(message),
+      },
+    };
+    await runSetup(options);
+
+    const result = await runSetup(options);
+
+    expect(result.plan).toEqual([
+      {
+        action: "unchanged-copy",
+        source: join(repositoryRoot, "source"),
+        target: join(homeRoot, "target"),
+      },
+    ]);
+    expect(await readlink(join(homeRoot, "target/current"))).toBe(
+      "nested/file",
+    );
+    expect(output.at(-1)).toBe(
+      `- leave unchanged copy ${join(homeRoot, "target")}`,
+    );
+    await expect(lstat(join(homeRoot, "target.backup"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("backs up and replaces a changed copy", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      { source: "new contents\n" },
+    );
+    await chmod(join(repositoryRoot, "source"), 0o751);
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await writeFile(target, "new contents\n");
+    await chmod(target, 0o644);
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "backup-target",
+      "create-copy",
+    ]);
+    expect(await readFile(target, "utf8")).toBe("new contents\n");
+    expect((await stat(target)).mode & 0o7777).toBe(0o751);
+    expect((await stat(`${target}.backup`)).mode & 0o7777).toBe(0o644);
+  });
+
+  it("dry-runs a copy replacement without mutation", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      { source: "new contents\n" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await writeFile(target, "old contents\n");
+    await writeFile(`${target}.backup`, "existing backup\n");
+
+    const result = await runSetup({
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
+      dryRun: true,
+    });
+
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "remove-backup",
+      "backup-target",
+      "create-copy",
+    ]);
+    expect(await readFile(target, "utf8")).toBe("old contents\n");
+    expect(await readFile(`${target}.backup`, "utf8")).toBe(
+      "existing backup\n",
+    );
+  });
+
+  it.each([
+    {
+      difference: "nested file bytes",
+      mutate: async (target: string) =>
+        writeFile(join(target, "nested/file"), "changed\n"),
+    },
+    {
+      difference: "directory entries",
+      mutate: async (target: string) =>
+        writeFile(join(target, "additional"), "added\n"),
+    },
+    {
+      difference: "entry types",
+      mutate: async (target: string) => {
+        await rm(join(target, "nested/file"));
+        await mkdir(join(target, "nested/file"));
+      },
+    },
+    {
+      difference: "symlink text",
+      mutate: async (target: string) => {
+        await rm(join(target, "current"));
+        await symlink("other", join(target, "current"));
+      },
+    },
+  ])(
+    "plans replacement for changed recursive copy $difference",
+    async ({ mutate }) => {
+      const repositoryRoot = await createRepository(
+        "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+        {
+          "source/nested/file": "contents\n",
+          "source/other": "other\n",
+        },
+      );
+      await symlink("nested/file", join(repositoryRoot, "source/current"));
+      const homeRoot = await temporaryDirectory();
+      const target = join(homeRoot, "target");
+      const options = mappingSetupOptions(repositoryRoot, homeRoot);
+      await runSetup(options);
+      await mutate(target);
+
+      const result = await runSetup({ ...options, dryRun: true });
+
+      expect(result.plan.map((item) => item.action)).toEqual([
+        "backup-target",
+        "create-copy",
+      ]);
+    },
+  );
+
+  it("preserves the target and backup when a copy fails across retries", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      { "source/file": "copy me\n" },
+    );
+    execFileSync("mkfifo", [join(repositoryRoot, "source/unsupported")]);
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await writeFile(target, "current target\n");
+    await writeFile(`${target}.backup`, "existing backup\n");
+    const options = mappingSetupOptions(repositoryRoot, homeRoot);
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await runSetup(options);
+
+      expect(result.exitCode).toBe(1);
+      expect(await readFile(target, "utf8")).toBe("current target\n");
+      expect(await readFile(`${target}.backup`, "utf8")).toBe(
+        "existing backup\n",
+      );
+      expect((await readdir(homeRoot)).sort()).toEqual([
+        "target",
+        "target.backup",
+      ]);
+    }
+  });
+
+  it("does not overwrite a copy target created after planning", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: copy\n    source: source\n    target: target\n",
+      { source: "copied contents\n" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+
+    const result = await runSetup({
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
+      prompt: {
+        choosePhases: async () => [],
+        confirm: async () => {
+          await writeFile(target, "concurrent contents\n");
+          return true;
+        },
+      },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(await readFile(target, "utf8")).toBe("concurrent contents\n");
+    await expect(lstat(`${target}.backup`)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("presents and applies a mapping plan using injected repository and home roots", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: link\n    source: git/gitconfig\n    target: .gitconfig\n",
@@ -87,14 +385,11 @@ describe("runSetup", () => {
     const output: string[] = [];
 
     const result = await runSetup({
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
       command: {
         platform: () => "darwin",
         write: (message) => output.push(message),
       },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
     });
 
     expect(result.plan.map((item) => item.action)).toEqual([
@@ -120,13 +415,9 @@ describe("runSetup", () => {
     await writeFile(target, "current config");
     await writeFile(`${target}.backup`, "stale backup");
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.plan.map((item) => item.action)).toEqual([
       "remove-backup",
@@ -147,12 +438,8 @@ describe("runSetup", () => {
     await writeFile(join(homeRoot, "target.backup"), "backup");
 
     const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
       dryRun: true,
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
     });
 
     expect(result.exitCode).toBe(0);
@@ -184,13 +471,9 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
     await writeFile(join(homeRoot, "target"), "current");
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.exitCode).toBe(1);
     expect(result.warnings).toEqual([
@@ -203,6 +486,46 @@ describe("runSetup", () => {
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("rejects a broken source symlink for a link mapping", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      {},
+    );
+    const source = join(repositoryRoot, "source");
+    await symlink("missing", source);
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.plan).toEqual([]);
+    expect(result.warnings).toEqual([expect.stringContaining(source)]);
+    await expect(lstat(join(homeRoot, "target"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("rejects unsupported mapping operations during preflight", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: move\n    source: source\n    target: target\n",
+      { source: "contents" },
+    );
+    const homeRoot = await temporaryDirectory();
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(result.plan).toEqual([]);
+    expect(result.warnings[0]).toContain("Invalid option");
+    await expect(lstat(join(homeRoot, "target"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("rejects a target that names the home root before making changes", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: link\n    source: source\n    target: .\n",
@@ -211,13 +534,9 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
     await writeFile(join(homeRoot, "sentinel"), "preserve me");
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.exitCode).toBe(1);
     expect(result.plan).toEqual([]);
@@ -237,13 +556,9 @@ describe("runSetup", () => {
     );
     const homeRoot = await temporaryDirectory();
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.exitCode).toBe(1);
     expect(result.plan).toEqual([]);
@@ -271,13 +586,9 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
     await writeFile(join(homeRoot, "sentinel"), "preserve me");
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.exitCode).toBe(1);
     expect(result.plan).toEqual([]);
@@ -294,11 +605,8 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
 
     const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
+      ...mappingSetupOptions(repositoryRoot, homeRoot),
       prompt: { choosePhases: async () => [], confirm: async () => false },
-      repositoryRoot,
     });
 
     expect(result.exitCode).toBe(0);
@@ -317,16 +625,7 @@ describe("runSetup", () => {
       { source: "contents" },
     );
     const homeRoot = await temporaryDirectory();
-    const options = {
-      command: { platform: () => "darwin" as const, write: () => undefined },
-      homeRoot,
-      phases: ["mappings" as const],
-      prompt: {
-        choosePhases: async () => ["mappings" as const],
-        confirm: async () => true,
-      },
-      repositoryRoot,
-    };
+    const options = mappingSetupOptions(repositoryRoot, homeRoot);
     await runSetup(options);
 
     const result = await runSetup(options);
@@ -346,6 +645,52 @@ describe("runSetup", () => {
     ).rejects.toMatchObject({ code: "ENOENT" });
   });
 
+  it("leaves a relative symlink unchanged when it resolves to the source", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: nested/target\n",
+      { source: "contents" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const source = join(repositoryRoot, "source");
+    const target = join(homeRoot, "nested/target");
+    await mkdir(dirname(target), { recursive: true });
+    const relativeSource = relative(dirname(target), source);
+    await symlink(relativeSource, target);
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.plan).toEqual([{ action: "unchanged", source, target }]);
+    expect(await readlink(target)).toBe(relativeSource);
+    await expect(lstat(`${target}.backup`)).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("backs up a symlink that resolves to a different source", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { other: "other contents", source: "contents" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await symlink(join(repositoryRoot, "other"), target);
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "backup-target",
+      "create-link",
+    ]);
+    expect(await readlink(target)).toBe(join(repositoryRoot, "source"));
+    expect(await readlink(`${target}.backup`)).toBe(
+      join(repositoryRoot, "other"),
+    );
+  });
+
   it("backs up a broken target symlink after removing a broken backup symlink", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: link\n    source: source\n    target: target\n",
@@ -355,13 +700,9 @@ describe("runSetup", () => {
     await symlink("/missing/target", join(homeRoot, "target"));
     await symlink("/missing/backup", join(homeRoot, "target.backup"));
 
-    const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
-      homeRoot,
-      phases: ["mappings"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
 
     expect(result.plan.map((item) => item.action)).toEqual([
       "remove-backup",
@@ -374,5 +715,26 @@ describe("runSetup", () => {
     expect(await readlink(join(homeRoot, "target.backup"))).toBe(
       "/missing/target",
     );
+  });
+
+  it("backs up a looping target symlink as broken", async () => {
+    const repositoryRoot = await createRepository(
+      "mappings:\n  - operation: link\n    source: source\n    target: target\n",
+      { source: "contents" },
+    );
+    const homeRoot = await temporaryDirectory();
+    const target = join(homeRoot, "target");
+    await symlink("target", target);
+
+    const result = await runSetup(
+      mappingSetupOptions(repositoryRoot, homeRoot),
+    );
+
+    expect(result.plan.map((item) => item.action)).toEqual([
+      "backup-target",
+      "create-link",
+    ]);
+    expect(await readlink(target)).toBe(join(repositoryRoot, "source"));
+    expect(await readlink(`${target}.backup`)).toBe("target");
   });
 });

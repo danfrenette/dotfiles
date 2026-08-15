@@ -1,10 +1,16 @@
 import {
+  cp,
+  link,
   lstat,
   mkdir,
+  mkdtemp,
+  readdir,
   readFile,
   readlink,
+  realpath,
   rename,
   rm,
+  rmdir,
   stat,
   symlink,
 } from "node:fs/promises";
@@ -19,7 +25,9 @@ export type PlanItem =
   | { action: "create-parent"; path: string }
   | { action: "remove-backup"; path: string }
   | { action: "backup-target"; source: string; target: string }
+  | { action: "create-copy"; source: string; target: string }
   | { action: "create-link"; source: string; target: string }
+  | { action: "unchanged-copy"; source: string; target: string }
   | { action: "unchanged"; source: string; target: string };
 
 export interface SetupResult {
@@ -61,19 +69,112 @@ const relativePath = z
 const manifestSchema = z.object({
   mappings: z.array(
     z.object({
-      operation: z.literal("link"),
+      operation: z.enum(["link", "copy"]),
       source: relativePath,
       target: relativePath,
     }),
   ),
 });
 
+function errorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error))
+    return undefined;
+  return typeof error.code === "string" ? error.code : undefined;
+}
+
 async function pathExists(path: string, followLinks = false): Promise<boolean> {
   try {
     await (followLinks ? stat(path) : lstat(path));
     return true;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+    if (errorCode(error) === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function copiedStateMatches(
+  source: string,
+  target: string,
+): Promise<boolean> {
+  const [sourceStat, targetStat] = await Promise.all([
+    lstat(source),
+    lstat(target),
+  ]);
+
+  if (sourceStat.isSymbolicLink() || targetStat.isSymbolicLink()) {
+    return (
+      sourceStat.isSymbolicLink() &&
+      targetStat.isSymbolicLink() &&
+      (await readlink(source)) === (await readlink(target))
+    );
+  }
+
+  if ((sourceStat.mode & 0o7777) !== (targetStat.mode & 0o7777)) return false;
+
+  if (sourceStat.isFile() || targetStat.isFile()) {
+    return (
+      sourceStat.isFile() &&
+      targetStat.isFile() &&
+      (await readFile(source)).equals(await readFile(target))
+    );
+  }
+
+  if (!sourceStat.isDirectory() || !targetStat.isDirectory()) return false;
+
+  const [sourceEntries, targetEntries] = await Promise.all([
+    readdir(source),
+    readdir(target),
+  ]);
+  sourceEntries.sort();
+  targetEntries.sort();
+  if (
+    sourceEntries.length !== targetEntries.length ||
+    sourceEntries.some((entry, index) => entry !== targetEntries[index])
+  )
+    return false;
+
+  for (const entry of sourceEntries) {
+    if (!(await copiedStateMatches(join(source, entry), join(target, entry))))
+      return false;
+  }
+  return true;
+}
+
+async function linkResolvesTo(
+  source: string,
+  target: string,
+): Promise<boolean> {
+  try {
+    const [resolvedSource, resolvedTarget] = await Promise.all([
+      realpath(source),
+      realpath(target),
+    ]);
+    return resolvedSource === resolvedTarget;
+  } catch (error) {
+    if (["ELOOP", "ENOENT", "ENOTDIR"].includes(errorCode(error) ?? ""))
+      return false;
+    throw error;
+  }
+}
+
+async function installStagedCopy(copy: string, target: string): Promise<void> {
+  const copyStat = await lstat(copy);
+  if (copyStat.isSymbolicLink()) {
+    await symlink(await readlink(copy), target);
+    return;
+  }
+  if (copyStat.isFile()) {
+    await link(copy, target);
+    return;
+  }
+  if (!copyStat.isDirectory())
+    throw new Error(`Unsupported staged copy: ${copy}`);
+
+  await mkdir(target);
+  try {
+    await rename(copy, target);
+  } catch (error) {
+    await rmdir(target);
     throw error;
   }
 }
@@ -87,6 +188,7 @@ async function buildPlan(
     parse(await readFile(manifestPath, "utf8")),
   );
   const mappings = manifest.mappings.map((mapping) => ({
+    operation: mapping.operation,
     source: join(repositoryRoot, mapping.source),
     target: join(homeRoot, mapping.target),
   }));
@@ -108,7 +210,7 @@ async function buildPlan(
 
   const missingSources: string[] = [];
   for (const mapping of mappings) {
-    if (!(await pathExists(mapping.source, true)))
+    if (!(await pathExists(mapping.source, mapping.operation === "link")))
       missingSources.push(mapping.source);
   }
   if (missingSources.length > 0)
@@ -118,11 +220,28 @@ async function buildPlan(
   const plannedParents = new Set<string>();
   for (const mapping of mappings) {
     if (await pathExists(mapping.target)) {
-      const linkedSource = (await lstat(mapping.target)).isSymbolicLink()
-        ? await readlink(mapping.target)
-        : undefined;
-      if (linkedSource === mapping.source) {
-        plan.push({ action: "unchanged", ...mapping });
+      if (
+        mapping.operation === "copy" &&
+        (await copiedStateMatches(mapping.source, mapping.target))
+      ) {
+        plan.push({
+          action: "unchanged-copy",
+          source: mapping.source,
+          target: mapping.target,
+        });
+        continue;
+      }
+
+      if (
+        mapping.operation === "link" &&
+        (await lstat(mapping.target)).isSymbolicLink() &&
+        (await linkResolvesTo(mapping.source, mapping.target))
+      ) {
+        plan.push({
+          action: "unchanged",
+          source: mapping.source,
+          target: mapping.target,
+        });
         continue;
       }
 
@@ -141,7 +260,11 @@ async function buildPlan(
       plan.push({ action: "create-parent", path: parent });
       plannedParents.add(parent);
     }
-    plan.push({ action: "create-link", ...mapping });
+    plan.push({
+      action: mapping.operation === "link" ? "create-link" : "create-copy",
+      source: mapping.source,
+      target: mapping.target,
+    });
   }
   return plan;
 }
@@ -156,29 +279,68 @@ function describe(item: PlanItem): string {
       return `move ${item.source} to ${item.target}`;
     case "create-link":
       return `link ${item.target} -> ${item.source}`;
+    case "create-copy":
+      return `copy ${item.source} to ${item.target}`;
     case "unchanged":
       return `leave correct link ${item.target}`;
+    case "unchanged-copy":
+      return `leave unchanged copy ${item.target}`;
   }
 }
 
 async function applyPlan(plan: PlanItem[]): Promise<void> {
-  for (const item of plan) {
-    switch (item.action) {
-      case "create-parent":
+  const stagedCopies = new Map<string, { copy: string; directory: string }>();
+
+  try {
+    for (const item of plan) {
+      if (item.action === "create-parent")
         await mkdir(item.path, { recursive: true });
-        break;
-      case "remove-backup":
-        await rm(item.path, { force: true, recursive: true });
-        break;
-      case "backup-target":
-        await rename(item.source, item.target);
-        break;
-      case "create-link":
-        await symlink(item.source, item.target);
-        break;
-      case "unchanged":
-        break;
     }
+
+    for (const item of plan) {
+      if (item.action !== "create-copy") continue;
+      const directory = await mkdtemp(
+        join(dirname(item.target), ".dotfiles-setup-"),
+      );
+      const copy = join(directory, "copy");
+      stagedCopies.set(item.target, { copy, directory });
+      await cp(item.source, copy, {
+        recursive: true,
+        verbatimSymlinks: true,
+      });
+    }
+
+    for (const item of plan) {
+      switch (item.action) {
+        case "create-parent":
+          break;
+        case "remove-backup":
+          await rm(item.path, { force: true, recursive: true });
+          break;
+        case "backup-target":
+          await rename(item.source, item.target);
+          break;
+        case "create-link":
+          await symlink(item.source, item.target);
+          break;
+        case "create-copy": {
+          const stagedCopy = stagedCopies.get(item.target);
+          if (!stagedCopy)
+            throw new Error(`Copy was not staged: ${item.target}`);
+          await installStagedCopy(stagedCopy.copy, item.target);
+          break;
+        }
+        case "unchanged":
+        case "unchanged-copy":
+          break;
+      }
+    }
+  } finally {
+    await Promise.all(
+      [...stagedCopies.values()].map(({ directory }) =>
+        rm(directory, { force: true, recursive: true }),
+      ),
+    );
   }
 }
 
