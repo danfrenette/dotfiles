@@ -55,7 +55,7 @@ class Installer
   def install_homebrew
     plan = homebrew.plan
     return complete_dry_run if options.dry_run
-    return 0 unless confirmed?(plan)
+    return 0 unless options.yes || runtime.prompt.confirm?
 
     homebrew.apply(plan)
     reporter.report_completion

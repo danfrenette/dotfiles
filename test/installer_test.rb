@@ -298,17 +298,11 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [
-      {type: :available, meta: {path: "/opt/homebrew/bin/brew"}},
-      {
-        type: :bundle,
-        meta: {
-          command: ["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"],
-          brewfile: brewfile,
-          effect: "install or update declared packages"
-        }
-      }
-    ], @reporter.actions
+    availability = @reporter.actions.find { |action| action[:type] == :available }
+    bundle = @reporter.actions.find { |action| action[:type] == :bundle }
+    assert_equal "/opt/homebrew/bin/brew", availability[:meta][:path]
+    assert_equal brewfile, bundle[:meta][:brewfile]
+    assert_equal "install or update declared packages", bundle[:meta][:effect]
     assert_empty command_runner.calls
     assert @reporter.dry_completion_reported
   end

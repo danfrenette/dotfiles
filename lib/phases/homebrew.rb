@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "operation"
+require_relative "homebrew/plan"
 
 module Phases
   class Homebrew
@@ -22,28 +22,13 @@ module Phases
 
       validate_brewfile
 
-      command = [brew, "bundle", "--file=#{brewfile_path}"]
-      operations = [
-        Operation.new(type: :available, meta: {path: brew}, command: nil),
-        Operation.new(
-          type: :bundle,
-          meta: {
-            command: command,
-            brewfile: brewfile_path,
-            effect: "install or update declared packages"
-          },
-          command: command
-        )
-      ]
-
-      operations.tap do |plan|
-        plan.each { |operation| reporter.report_action(operation.type, operation.meta) }
+      Plan.new(executable: brew, brewfile: brewfile_path).tap do |plan|
+        plan.items.each { |item| reporter.report_action(item.fetch(:type), item.fetch(:meta)) }
       end
     end
 
     def apply(plan)
-      operation = plan.find { |item| item.type == :bundle }
-      result = command_runner.run(*operation.command)
+      result = command_runner.run(*plan.command)
       raise Error, "brew bundle could not start" if result.nil?
       raise Error, "brew bundle exited with a nonzero status" unless result
     end
