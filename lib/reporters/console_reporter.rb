@@ -11,7 +11,12 @@ module Reporters
       already_linked: "[OK]",
       would_link: "[DRY]",
       would_replace: "[DRY]",
-      skipped: "[SKIP]"
+      skipped: "[SKIP]",
+      create_directory: "[MKDIR]",
+      remove: "[REMOVE]",
+      move: "[BACKUP]",
+      create_symlink: "[LINK]",
+      unchanged: "[OK]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -78,6 +83,16 @@ module Reporters
         "#{format_path(source)} would back up #{target} -> #{target}.backup and replace"
       when :skipped
         meta[:message].to_s
+      when :create_directory
+        meta[:path]
+      when :remove
+        meta[:path]
+      when :move
+        "#{meta[:source]} -> #{meta[:target]}"
+      when :create_symlink
+        "#{format_path(meta[:source])} -> #{meta[:target]}"
+      when :unchanged
+        "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
       end

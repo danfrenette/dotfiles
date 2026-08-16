@@ -180,4 +180,12 @@ class LinkerTest < DotfilesTestCase
 
     refute @linker.correctly_linked?(target, source)
   end
+
+  def test_apply_rejects_unknown_operations
+    error = assert_raises(ArgumentError) do
+      @linker.apply([{type: :unknown}])
+    end
+
+    assert_equal "Unknown link operation: unknown", error.message
+  end
 end

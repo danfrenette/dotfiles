@@ -30,7 +30,3 @@ psql:
 
 cursor:
   cursor/commands: ~/.cursor/commands
-
-bin:
-  bin/opencode-dev: ~/.local/bin/opencode-dev
-  bin/opencode-dev-web: ~/.local/bin/opencode-dev-web

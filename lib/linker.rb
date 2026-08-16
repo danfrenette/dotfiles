@@ -19,6 +19,48 @@ class Linker
     execute(source, target)
   end
 
+  def plan(mappings)
+    mappings.flat_map do |source, target|
+      source = File.expand_path(source)
+      target = File.expand_path(target)
+      raise ArgumentError, "Source does not exist: #{source}" unless File.exist?(source)
+      if already_linked?(target, source)
+        next [{type: :unchanged, source: source, target: target}]
+      end
+
+      operations = []
+      target_dir = File.dirname(target)
+      validate_parent(target_dir)
+      operations << {type: :create_directory, path: target_dir} unless Dir.exist?(target_dir)
+      if target_exists?(target)
+        backup_path = "#{target}#{BACKUP_SUFFIX}"
+        operations << {type: :remove, path: backup_path} if target_exists?(backup_path)
+        operations << {type: :move, source: target, target: backup_path}
+      end
+      operations << {type: :create_symlink, source: source, target: target}
+      operations
+    end
+  end
+
+  def apply(plan)
+    plan.each do |operation|
+      case operation.fetch(:type)
+      when :create_directory
+        FileUtils.mkdir_p(operation.fetch(:path))
+      when :create_symlink
+        File.symlink(operation.fetch(:source), operation.fetch(:target))
+      when :move
+        FileUtils.mv(operation.fetch(:source), operation.fetch(:target))
+      when :remove
+        FileUtils.rm_rf(operation.fetch(:path))
+      when :unchanged
+        nil
+      else
+        raise ArgumentError, "Unknown link operation: #{operation.fetch(:type)}"
+      end
+    end
+  end
+
   def backup(path)
     path = File.expand_path(path)
     return unless File.exist?(path) || File.symlink?(path)
@@ -62,6 +104,17 @@ class Linker
 
   def target_exists?(target)
     File.exist?(target) || File.symlink?(target)
+  end
+
+  def validate_parent(path)
+    until Dir.exist?(path)
+      raise ArgumentError, "Cannot create parent directory: #{path}" if target_exists?(path)
+
+      parent = File.dirname(path)
+      return if parent == path
+
+      path = parent
+    end
   end
 
   def create_symlink(source, target)

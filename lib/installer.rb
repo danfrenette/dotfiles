@@ -4,30 +4,48 @@ require_relative "linker"
 require_relative "config"
 require_relative "skill_installer"
 require_relative "remote_skills/sources"
-require_relative "reporters/console_reporter"
+require_relative "setup_options"
+require_relative "setup_runtime"
 
 class Installer
-  def initialize(skip_brew: false, dry_run: false, update_skills: false, skills_only: false, linker: nil, config: Config.new, reporter: nil)
-    @skip_brew = skip_brew
-    @dry_run = dry_run
-    @update_skills = update_skills
-    @skills_only = skills_only
+  def initialize(options: SetupOptions.new, config: Config.new, runtime: SetupRuntime.new)
+    @options = options
     @config = config
-    @linker = linker || Linker.new(dry_run: dry_run)
-    @reporter = reporter || Reporters::ConsoleReporter.new
+    @runtime = runtime
+    @linker = Linker.new(dry_run: options.dry_run)
   end
 
   def install
-    return install_skills if skills_only
+    if options.skills_only
+      install_skills
+      return 0
+    end
 
-    install_brew_packages unless skip_brew
-    link_dotfiles
+    plan = plan_mappings
+    if options.dry_run
+      reporter.report_dry_completion
+      return 0
+    end
+    return 0 unless plan.empty? || options.yes || runtime.prompt.confirm?
+
+    install_brew_packages unless options.skip_brew || options.only == :mappings
+    linker.apply(plan)
+    return 0 if options.only == :mappings
+
     post_install
+    0
+  rescue ArgumentError, SystemCallError => error
+    reporter.report_warning(error.message)
+    1
   end
 
   private
 
-  attr_reader :skip_brew, :dry_run, :update_skills, :skills_only, :linker, :config, :reporter
+  attr_reader :options, :config, :runtime, :linker
+
+  def reporter
+    runtime.reporter
+  end
 
   def install_skills
     guard_against_recursive_skills_destination
@@ -40,7 +58,7 @@ class Installer
       return
     end
 
-    skill_installer = SkillInstaller.new(dry_run: dry_run, linker: linker, reporter: reporter)
+    skill_installer = SkillInstaller.new(dry_run: options.dry_run, linker: linker, reporter: reporter)
     skill_installer.install(skills, target_dir: config.opencode_skills_target)
   end
 
@@ -53,7 +71,7 @@ class Installer
 
   def remote_skills
     remote_sources = RemoteSkills::Sources.new(config: config)
-    remote_sources.sources(update: update_skills)
+    remote_sources.sources(update: options.update_skills)
   end
 
   def guard_against_recursive_skills_destination
@@ -76,21 +94,22 @@ class Installer
       return
     end
 
-    if dry_run
+    if options.dry_run
       reporter.report_action(:skipped, message: "brew bundle --file=#{config.brewfile_path}")
       return
     end
 
-    success = system("brew bundle --file=#{config.brewfile_path}")
+    success = runtime.command_runner.call("brew", "bundle", "--file=#{config.brewfile_path}")
     reporter.report_warning("brew bundle failed, continuing anyway") unless success
   end
 
-  def link_dotfiles
+  def plan_mappings
     reporter.report_phase("Linking dotfiles")
 
-    config.mappings.each do |source, target|
-      result = linker.link(source, target)
-      reporter.report_action(result, source: source, target: target)
+    linker.plan(config.mappings).tap do |plan|
+      plan.each do |operation|
+        reporter.report_action(operation.fetch(:type), operation.except(:type))
+      end
     end
   end
 
@@ -105,16 +124,16 @@ class Installer
   def install_nvim_plugins
     return unless File.exist?(config.nvim_init_target)
 
-    if dry_run
+    if options.dry_run
       reporter.report_action(:skipped, message: "would run nvim --headless +PlugInstall +qa")
       return
     end
 
-    system('nvim --headless "+PlugInstall" "+qa" 2>/dev/null')
+    runtime.command_runner.call("nvim", "--headless", "+PlugInstall", "+qa", err: File::NULL)
   end
 
   def report_completion
-    if dry_run
+    if options.dry_run
       reporter.report_dry_completion
     else
       reporter.report_completion([

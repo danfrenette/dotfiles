@@ -13,10 +13,14 @@ require "config"
 require "support/assertions"
 require "support/skill_fixtures"
 require "support/test_config"
+require "support/test_prompt"
+require "support/test_command_runner"
+require "support/mapping_fixtures"
 
 class DotfilesTestCase < Minitest::Test
   include Assertions
   include SkillFixtures
+  include MappingFixtures
 
   def setup
     @tmpdir = Dir.mktmpdir("dotfiles-test")
