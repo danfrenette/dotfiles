@@ -123,7 +123,7 @@ class Installer
 
     linker.plan(config.mappings).tap do |plan|
       plan.each do |operation|
-        reporter.report_action(operation.fetch(:type), operation.except(:type))
+        reporter.report_action(operation.type, operation.meta)
       end
     end
   end
@@ -149,7 +149,7 @@ class Installer
 
   def nvim_config_available?(mapping_plan)
     File.exist?(config.nvim_init_target) || mapping_plan.any? do |operation|
-      operation[:type] == :create_symlink && operation[:target] == config.nvim_init_target
+      operation.type == :create_symlink && operation.target == config.nvim_init_target
     end
   end
 

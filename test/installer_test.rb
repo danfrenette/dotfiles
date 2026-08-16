@@ -28,7 +28,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings},
-      config: {mappings: {source => target}},
+      config: {mappings: [mapping(source, target)]},
       runtime: {prompt: prompt}
     ).install
 
@@ -46,7 +46,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings},
-      config: {mappings: {source => target}},
+      config: {mappings: [mapping(source, target)]},
       runtime: {prompt: prompt}
     ).install
 
@@ -61,7 +61,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, dry_run: true},
-      config: {mappings: {source => target}},
+      config: {mappings: [mapping(source, target)]},
       runtime: {prompt: prompt}
     ).install
 
@@ -76,7 +76,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {source => target}},
+      config: {mappings: [mapping(source, target)]},
       runtime: {prompt: prompt}
     ).install
 
@@ -91,7 +91,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {source => first_target, missing_source => second_target}}
+      config: {mappings: [mapping(source, first_target), mapping(missing_source, second_target)]}
     ).install
 
     assert_equal 1, status
@@ -108,7 +108,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {first_source => first_target, second_source => second_target}}
+      config: {mappings: [mapping(first_source, first_target), mapping(second_source, second_target)]}
     ).install
 
     assert_equal 1, status
@@ -122,7 +122,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {source => target}}
+      config: {mappings: [mapping(source, target)]}
     ).install
 
     assert_equal 0, status
@@ -141,7 +141,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {source => target}}
+      config: {mappings: [mapping(source, target)]}
     ).install
 
     assert_equal 0, status
@@ -157,7 +157,7 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     installer = build_installer(
       options: {only: :mappings, yes: true},
-      config: {mappings: {source => target}}
+      config: {mappings: [mapping(source, target)]}
     )
     installer.install
     @reporter.clear
@@ -172,13 +172,62 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?("#{target}.backup")
   end
 
+  def test_plans_and_applies_link_and_copy_mappings_in_manifest_order
+    link_source, link_target = create_mapping("linked")
+    copy_source, copy_target = create_mapping("copied")
+
+    status = build_installer(
+      options: {only: :mappings, yes: true},
+      config: {
+        mappings: [mapping(link_source, link_target), mapping(copy_source, copy_target, operation: :copy)]
+      }
+    ).install
+
+    assert_equal 0, status
+    assert_equal [:create_directory, :create_symlink, :create_directory, :create_copy], @reporter.action_types
+    assert_symlink link_target, to: link_source
+    refute File.symlink?(copy_target)
+    assert_equal File.read(copy_source), File.read(copy_target)
+  end
+
+  def test_removed_mapping_is_left_untouched
+    first_source, first_target = create_mapping("first")
+    second_source, second_target = create_mapping("second")
+    build_installer(
+      options: {only: :mappings, yes: true},
+      config: {mappings: [mapping(first_source, first_target), mapping(second_source, second_target)]}
+    ).install
+
+    build_installer(
+      options: {only: :mappings, yes: true},
+      config: {mappings: [mapping(first_source, first_target)]}
+    ).install
+
+    assert_symlink second_target, to: second_source
+    refute File.exist?("#{second_target}.backup")
+  end
+
+  def test_declined_copy_plan_creates_no_target_or_staging_directory
+    source, target = create_mapping("copied")
+
+    status = build_installer(
+      options: {only: :mappings},
+      config: {mappings: [mapping(source, target, operation: :copy)]},
+      runtime: {prompt: TestPrompt.new(false)}
+    ).install
+
+    assert_equal 0, status
+    refute File.exist?(target)
+    assert_empty Dir.glob(File.join(File.dirname(target), ".dotfiles-stage-*"))
+  end
+
   def test_only_mappings_excludes_unrelated_phases
     source, target = create_mapping("gitconfig")
     create_skill("engineering/tdd")
 
     status = build_installer(
       options: {skip_brew: false, only: :mappings, yes: true},
-      config: {mappings: {source => target}, local_skills: ["engineering/tdd"]}
+      config: {mappings: [mapping(source, target)], local_skills: ["engineering/tdd"]}
     ).install
 
     assert_equal 0, status
@@ -197,7 +246,7 @@ class InstallerTest < DotfilesTestCase
     status = build_installer(
       options: {skip_brew: false},
       config: {
-        mappings: {source => target},
+        mappings: [mapping(source, target)],
         brewfile_path: brewfile,
         local_skills: ["engineering/tdd"]
       },
@@ -221,7 +270,7 @@ class InstallerTest < DotfilesTestCase
     status = build_installer(
       options: {skip_brew: false, dry_run: true},
       config: {
-        mappings: {source => target},
+        mappings: [mapping(source, target)],
         brewfile_path: brewfile,
         nvim_init_target: nvim_init,
         local_skills: ["engineering/tdd"]
@@ -245,7 +294,7 @@ class InstallerTest < DotfilesTestCase
     status = build_installer(
       options: {dry_run: true},
       config: {
-        mappings: {source => nvim_init},
+        mappings: [mapping(source, nvim_init)],
         nvim_init_target: nvim_init
       }
     ).install
@@ -287,7 +336,7 @@ class InstallerTest < DotfilesTestCase
       opencode_skills_target: @skills_target,
       local_skills: local_skills,
       skills_manifest_path: @skills_manifest,
-      mappings: config.fetch(:mappings, {}),
+      mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
       nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua")
     )

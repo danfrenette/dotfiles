@@ -1,25 +1,32 @@
 # frozen_string_literal: true
 
 require "yaml"
+require_relative "mapping_manifest"
 
 class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
   MAPPINGS_PATH = File.join(DOTFILES_ROOT, "config", "mappings.yml").freeze
 
+  def initialize(repository_root: DOTFILES_ROOT, home_root: Dir.home, mappings_path: nil)
+    @repository_root = File.expand_path(repository_root)
+    @home_root = File.expand_path(home_root)
+    @mappings_path = mappings_path ? File.expand_path(mappings_path) : File.join(@repository_root, "config", "mappings.yml")
+  end
+
   def mappings
-    mappings_data.flat_map do |category, files|
-      files.map do |source, target|
-        [dotfiles_path(source), expand_home(target)]
-      end
-    end.to_h
+    @mappings ||= MappingManifest.load(
+      @mappings_path,
+      repository_root: @repository_root,
+      home_root: @home_root
+    )
   end
 
   def dotfiles_path(*parts)
-    File.join(DOTFILES_ROOT, *parts)
+    File.join(@repository_root, *parts)
   end
 
   def home_path(*parts)
-    File.join(Dir.home, *parts)
+    File.join(@home_root, *parts)
   end
 
   def nvim_init_target
@@ -27,7 +34,7 @@ class Config
   end
 
   def brewfile_path
-    File.join(DOTFILES_ROOT, "Brewfile")
+    dotfiles_path("Brewfile")
   end
 
   def skills_source_root
@@ -50,15 +57,5 @@ class Config
 
   def skills_data
     @skills_data ||= YAML.safe_load_file(skills_manifest_path) || {}
-  end
-
-  def mappings_data
-    @mappings_data ||= YAML.safe_load_file(MAPPINGS_PATH) || {}
-  end
-
-  def expand_home(path)
-    return path unless path.start_with?("~")
-
-    File.join(Dir.home, path[1..])
   end
 end

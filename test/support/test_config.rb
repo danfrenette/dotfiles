@@ -14,7 +14,7 @@ class TestConfig
     opencode_skills_target:,
     skills_manifest_path:,
     local_skills: [],
-    mappings: {},
+    mappings: [],
     nvim_init_target: "/nonexistent/path/init.lua",
     brewfile_path: "/nonexistent/Brewfile"
   )

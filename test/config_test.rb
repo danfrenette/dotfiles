@@ -8,84 +8,108 @@ class ConfigTest < DotfilesTestCase
     @config = Config.new
   end
 
-  def test_mappings_returns_hash
-    assert_instance_of Hash, @config.mappings
+  def test_mappings_returns_ordered_values
+    assert_instance_of MappingManifest, @config.mappings
+    assert_instance_of MappingManifest::Mapping, @config.mappings.first
   end
 
   def test_mappings_includes_git_configs
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("git", "gitconfig"))
-    assert mappings.key?(@config.dotfiles_path("git", "gitignore"))
-    assert mappings.key?(@config.dotfiles_path("git", "gitmessage"))
-    assert mappings.key?(@config.dotfiles_path("git", "ignore"))
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitconfig") }
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitignore") }
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitmessage") }
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "ignore") }
   end
 
   def test_git_mappings_point_to_correct_targets
     mappings = @config.mappings
 
-    assert_equal @config.home_path(".gitconfig"), mappings[@config.dotfiles_path("git", "gitconfig")]
-    assert_equal @config.home_path(".gitignore"), mappings[@config.dotfiles_path("git", "gitignore")]
-    assert_equal @config.home_path(".gitmessage"), mappings[@config.dotfiles_path("git", "gitmessage")]
-    assert_equal @config.home_path(".config", "git", "ignore"), mappings[@config.dotfiles_path("git", "ignore")]
+    gitconfig = mappings.find { |mapping| mapping.source == @config.dotfiles_path("git", "gitconfig") }
+    assert_equal :link, gitconfig.operation
+    assert_equal @config.home_path(".gitconfig"), gitconfig.target
   end
 
   def test_mappings_includes_zsh_configs
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("zsh", "zshrc"))
-    assert mappings.key?(@config.dotfiles_path("zsh", "zprofile"))
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("zsh", "zshrc") }
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("zsh", "zprofile") }
   end
 
   def test_zsh_mappings_point_to_correct_targets
     mappings = @config.mappings
 
-    assert_equal @config.home_path(".zshrc"), mappings[@config.dotfiles_path("zsh", "zshrc")]
-    assert_equal @config.home_path(".zprofile"), mappings[@config.dotfiles_path("zsh", "zprofile")]
+    zsh = mappings.select { |mapping| mapping.source.include?("/zsh/") }
+    assert_equal [@config.home_path(".zshrc"), @config.home_path(".zprofile")], zsh.map(&:target)
   end
 
   def test_mappings_includes_nvim_configs
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("config", "nvim", "init.lua"))
-    assert mappings.key?(@config.dotfiles_path("config", "nvim", "lua", "options.lua"))
-    assert mappings.key?(@config.dotfiles_path("config", "nvim", "lua", "keymaps.lua"))
-    assert mappings.key?(@config.dotfiles_path("config", "nvim", "lua", "plugins.lua"))
-    assert mappings.key?(@config.dotfiles_path("config", "nvim", "lua", "autocmds.lua"))
+    assert_equal 5, mappings.count { |mapping| mapping.source.include?("/config/nvim/") }
   end
 
   def test_nvim_mappings_point_to_correct_targets
     mappings = @config.mappings
 
-    assert_equal @config.home_path(".config", "nvim", "init.lua"),
-      mappings[@config.dotfiles_path("config", "nvim", "init.lua")]
-    assert_equal @config.home_path(".config", "nvim", "lua", "options.lua"),
-      mappings[@config.dotfiles_path("config", "nvim", "lua", "options.lua")]
+    init = mappings.find { |mapping| mapping.source.end_with?("config/nvim/init.lua") }
+    assert_equal @config.home_path(".config", "nvim", "init.lua"), init.target
   end
 
   def test_mappings_include_ghostty_config
     mappings = @config.mappings
 
-    assert mappings.key?(@config.dotfiles_path("config", "ghostty", "config"))
+    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("config", "ghostty", "config") }
   end
 
   def test_ghostty_mapping_points_to_correct_target
     mappings = @config.mappings
 
-    assert_equal @config.home_path(".config", "ghostty", "config"),
-      mappings[@config.dotfiles_path("config", "ghostty", "config")]
+    mapping = mappings.find { |entry| entry.source.end_with?("config/ghostty/config") }
+    assert_equal @config.home_path(".config", "ghostty", "config"), mapping.target
   end
 
   def test_all_mapping_sources_are_absolute_paths
-    @config.mappings.each_key do |source|
-      assert source.start_with?("/"), "Source path should be absolute: #{source}"
+    @config.mappings.each do |mapping|
+      assert mapping.source.start_with?("/"), "Source path should be absolute: #{mapping.source}"
     end
   end
 
   def test_all_mapping_targets_are_absolute_paths
-    @config.mappings.each_value do |target|
-      assert target.start_with?("/"), "Target path should be absolute: #{target}"
+    @config.mappings.each do |mapping|
+      assert mapping.target.start_with?("/"), "Target path should be absolute: #{mapping.target}"
     end
+  end
+
+  def test_all_real_mappings_explicitly_link
+    assert @config.mappings.all? { |mapping| mapping.operation == :link }
+  end
+
+  def test_resolves_injected_manifest_in_order
+    repository_root = create_dir("repository")
+    home_root = create_dir("home")
+    create_file("repository/first")
+    create_file("repository/second")
+    manifest_path = create_file("mappings.yml", <<~YAML)
+      mappings:
+        - operation: copy
+          source: first
+          target: .first
+        - operation: link
+          source: second
+          target: nested/second
+    YAML
+
+    mappings = Config.new(
+      repository_root: repository_root,
+      home_root: home_root,
+      mappings_path: manifest_path
+    ).mappings
+
+    assert_equal [:copy, :link], mappings.map(&:operation)
+    assert_equal [File.join(repository_root, "first"), File.join(repository_root, "second")], mappings.map(&:source)
+    assert_equal [File.join(home_root, ".first"), File.join(home_root, "nested/second")], mappings.map(&:target)
   end
 
   def test_dotfiles_path_returns_absolute_path

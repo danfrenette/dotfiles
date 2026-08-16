@@ -1,32 +1,52 @@
-git:
-  git/gitconfig: ~/.gitconfig
-  git/gitignore: ~/.gitignore
-  git/gitmessage: ~/.gitmessage
-  git/ignore: ~/.config/git/ignore
-
-zsh:
-  zsh/zshrc: ~/.zshrc
-  zsh/zprofile: ~/.zprofile
-
-nvim:
-  config/nvim/init.lua: ~/.config/nvim/init.lua
-  config/nvim/lua/options.lua: ~/.config/nvim/lua/options.lua
-  config/nvim/lua/keymaps.lua: ~/.config/nvim/lua/keymaps.lua
-  config/nvim/lua/plugins.lua: ~/.config/nvim/lua/plugins.lua
-  config/nvim/lua/autocmds.lua: ~/.config/nvim/lua/autocmds.lua
-
-ghostty:
-  config/ghostty/config: ~/.config/ghostty/config
-
-tmux:
-  tmux/tmux.conf: ~/.tmux.conf
-
-ruby:
-  ruby/irbrc: ~/.irbrc
-  ruby/pryrc: ~/.pryrc
-
-psql:
-  config/psqlrc: ~/.psqlrc
-
-cursor:
-  cursor/commands: ~/.cursor/commands
+mappings:
+  - operation: link
+    source: git/gitconfig
+    target: .gitconfig
+  - operation: link
+    source: git/gitignore
+    target: .gitignore
+  - operation: link
+    source: git/gitmessage
+    target: .gitmessage
+  - operation: link
+    source: git/ignore
+    target: .config/git/ignore
+  - operation: link
+    source: zsh/zshrc
+    target: .zshrc
+  - operation: link
+    source: zsh/zprofile
+    target: .zprofile
+  - operation: link
+    source: config/nvim/init.lua
+    target: .config/nvim/init.lua
+  - operation: link
+    source: config/nvim/lua/options.lua
+    target: .config/nvim/lua/options.lua
+  - operation: link
+    source: config/nvim/lua/keymaps.lua
+    target: .config/nvim/lua/keymaps.lua
+  - operation: link
+    source: config/nvim/lua/plugins.lua
+    target: .config/nvim/lua/plugins.lua
+  - operation: link
+    source: config/nvim/lua/autocmds.lua
+    target: .config/nvim/lua/autocmds.lua
+  - operation: link
+    source: config/ghostty/config
+    target: .config/ghostty/config
+  - operation: link
+    source: tmux/tmux.conf
+    target: .tmux.conf
+  - operation: link
+    source: ruby/irbrc
+    target: .irbrc
+  - operation: link
+    source: ruby/pryrc
+    target: .pryrc
+  - operation: link
+    source: config/psqlrc
+    target: .psqlrc
+  - operation: link
+    source: cursor/commands
+    target: .cursor/commands

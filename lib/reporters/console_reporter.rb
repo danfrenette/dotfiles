@@ -16,7 +16,9 @@ module Reporters
       remove: "[REMOVE]",
       move: "[BACKUP]",
       create_symlink: "[LINK]",
-      unchanged: "[OK]"
+      create_copy: "[COPY]",
+      unchanged: "[OK]",
+      unchanged_copy: "[OK]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -91,7 +93,9 @@ module Reporters
         "#{meta[:source]} -> #{meta[:target]}"
       when :create_symlink
         "#{format_path(meta[:source])} -> #{meta[:target]}"
-      when :unchanged
+      when :create_copy
+        "#{format_path(meta[:source])} -> #{meta[:target]}"
+      when :unchanged, :unchanged_copy
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
@@ -99,9 +103,7 @@ module Reporters
     end
 
     def format_path(path)
-      return path unless path.is_a?(String)
-
-      path.sub(%r{\A#{Regexp.escape(Config::DOTFILES_ROOT)}/}o, "")
+      path.to_s.sub(%r{\A#{Regexp.escape(Config::DOTFILES_ROOT)}/}o, "")
     end
   end
 end
