@@ -83,7 +83,7 @@ class ConfigTest < DotfilesTestCase
   end
 
   def test_all_real_mappings_explicitly_link
-    assert @config.mappings.all? { |mapping| mapping.operation == :link }
+    assert @config.mappings.all?(&:link?)
   end
 
   def test_resolves_injected_manifest_in_order

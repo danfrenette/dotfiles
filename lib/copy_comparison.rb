@@ -3,6 +3,8 @@
 require "fileutils"
 
 class CopyComparison
+  PERMISSION_BITS_MASK = 0o7777
+
   def initialize(source, target)
     @source = source
     @target = target
@@ -31,7 +33,7 @@ class CopyComparison
   end
 
   def modes_match?
-    (source_stat.mode & 0o7777) == (target_stat.mode & 0o7777)
+    (source_stat.mode & PERMISSION_BITS_MASK) == (target_stat.mode & PERMISSION_BITS_MASK)
   end
 
   def contents_match?

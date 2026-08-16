@@ -6,7 +6,15 @@ require "yaml"
 class MappingManifest
   include Enumerable
 
-  Mapping = Data.define(:operation, :source, :target)
+  Mapping = Data.define(:operation, :source, :target) do
+    def link?
+      operation == :link
+    end
+
+    def copy?
+      operation == :copy
+    end
+  end
   InvalidManifest = Class.new(ArgumentError)
   OPERATIONS = %w[link copy].freeze
 
@@ -109,7 +117,7 @@ class MappingManifest
   end
 
   def source_exists?(mapping)
-    File.exist?(mapping.source) || (mapping.operation == :copy && File.symlink?(mapping.source))
+    File.exist?(mapping.source) || (mapping.copy? && File.symlink?(mapping.source))
   end
 
   def path_exists?(path)

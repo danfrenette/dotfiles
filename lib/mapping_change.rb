@@ -24,12 +24,12 @@ class MappingChange
   attr_reader :mapping, :backup_suffix, :source, :target
 
   def validate_source!
-    exists = File.exist?(source) || (mapping.operation == :copy && File.symlink?(source))
+    exists = File.exist?(source) || (mapping.copy? && File.symlink?(source))
     raise ArgumentError, "Source does not exist: #{source}" unless exists
   end
 
   def unchanged?
-    if mapping.operation == :link
+    if mapping.link?
       correctly_linked?
     else
       CopyComparison.new(source, target).match?
@@ -37,7 +37,7 @@ class MappingChange
   end
 
   def unchanged_operation
-    if mapping.operation == :link
+    if mapping.link?
       MappingOperation.unchanged(source, target)
     else
       MappingOperation.unchanged_copy(source, target)
@@ -59,7 +59,7 @@ class MappingChange
   end
 
   def install_operation
-    if mapping.operation == :link
+    if mapping.link?
       MappingOperation.create_symlink(source, target)
     else
       MappingOperation.create_copy(source, target)
