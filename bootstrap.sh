@@ -4,17 +4,83 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUBY_VERSION="$(tr -d '[:space:]' < "$ROOT/.ruby-version")"
 DRY_RUN=false
+HELP=false
+ONLY_PHASE=""
+SKILLS_ONLY=false
 
-for argument in "$@"; do
-  if [[ "$argument" == "--dry-run" ]]; then
-    DRY_RUN=true
-    break
+print_usage() {
+  cat <<'USAGE'
+Usage: install.rb [options]
+        --dry-run                    Print the plan without applying it
+        --yes                        Apply the plan without confirmation
+        --only PHASE                 Run only homebrew or mappings
+        --skip-brew                  Skip the Homebrew phase
+        --skills-only                Install skills only
+    -h, --help                       Show this help
+USAGE
+}
+
+usage_error() {
+  echo "$1" >&2
+  print_usage >&2
+  exit 64
+}
+
+validate_arguments() {
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run)
+        DRY_RUN=true
+        shift
+        ;;
+      --yes|--skip-brew)
+        shift
+        ;;
+      --skills-only)
+        SKILLS_ONLY=true
+        shift
+        ;;
+      --only)
+        [[ $# -gt 1 ]] || usage_error "missing argument: --only"
+        ONLY_PHASE="$2"
+        shift 2
+        ;;
+      --only=*)
+        ONLY_PHASE="${1#--only=}"
+        [[ -n "$ONLY_PHASE" ]] || usage_error "missing argument: --only"
+        shift
+        ;;
+      -h|--help)
+        HELP=true
+        shift
+        ;;
+      --*)
+        usage_error "invalid option: $1"
+        ;;
+      *)
+        usage_error "Unexpected arguments: $1"
+        ;;
+    esac
+  done
+
+  if [[ "$HELP" == true ]]; then
+    print_usage
+    exit 0
   fi
-done
+  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "mappings" ]]; then
+    usage_error "Unsupported phase: $ONLY_PHASE"
+  fi
+  if [[ -n "$ONLY_PHASE" && "$SKILLS_ONLY" == true ]]; then
+    usage_error "--only and --skills-only cannot be combined"
+  fi
+}
+
+validate_arguments "$@"
 
 find_brew() {
-  if command -v brew >/dev/null 2>&1; then
-    command -v brew
+  local path
+  if path="$(command -v brew 2>/dev/null)" && [[ -f "$path" && -x "$path" ]]; then
+    echo "$path"
     return
   fi
 
@@ -23,7 +89,7 @@ find_brew() {
   candidates="${HOMEBREW_CANDIDATES:-/opt/homebrew/bin/brew:/usr/local/bin/brew}"
   IFS=: read -ra brew_candidates <<< "$candidates"
   for candidate in "${brew_candidates[@]}"; do
-    if [[ -x "$candidate" ]]; then
+    if [[ -f "$candidate" && -x "$candidate" ]]; then
       echo "$candidate"
       return
     fi

@@ -5,6 +5,37 @@ require "open3"
 require "bundler"
 
 class BootstrapTest < DotfilesTestCase
+  def test_invalid_arguments_fail_before_missing_prerequisite_dry_run
+    bin = create_dir("bin")
+    log = tmp_path("commands.log")
+
+    stdout, stderr, status = run_bootstrap(
+      base_environment(bin, log).merge("HOMEBREW_CANDIDATES" => tmp_path("missing-brew")),
+      "--invalid", "--dry-run"
+    )
+
+    assert_equal 64, status.exitstatus
+    assert_empty stdout
+    assert_includes stderr, "invalid option: --invalid"
+    refute File.exist?(log)
+  end
+
+  def test_help_succeeds_without_prerequisites
+    bin = create_dir("bin")
+    log = tmp_path("commands.log")
+
+    stdout, stderr, status = run_bootstrap(
+      base_environment(bin, log).merge("HOMEBREW_CANDIDATES" => tmp_path("missing-brew")),
+      "--help"
+    )
+
+    assert status.success?, stderr
+    assert_includes stdout, "Usage: install.rb [options]"
+    assert_includes stdout, "--only PHASE"
+    assert_empty stderr
+    refute File.exist?(log)
+  end
+
   def test_uses_repository_ruby_and_forwards_installer_arguments
     bin = create_dir("bin")
     log = tmp_path("commands.log")
@@ -104,6 +135,22 @@ class BootstrapTest < DotfilesTestCase
     assert_includes stdout, "Would install Homebrew with the official installer"
     refute File.exist?(log)
     refute_includes stdout, "Running installer with Ruby"
+  end
+
+  def test_executable_directory_candidate_is_treated_as_missing_homebrew
+    bin = create_dir("bin")
+    log = tmp_path("commands.log")
+    candidate = create_dir("candidate-brew")
+    FileUtils.chmod("+x", candidate)
+
+    stdout, stderr, status = run_bootstrap(
+      base_environment(bin, log).merge("HOMEBREW_CANDIDATES" => candidate),
+      "--dry-run"
+    )
+
+    assert status.success?, stderr
+    assert_includes stdout, "Would install Homebrew with the official installer"
+    refute File.exist?(log)
   end
 
   def test_missing_rbenv_dry_run_reports_without_installing
@@ -206,7 +253,7 @@ class BootstrapTest < DotfilesTestCase
     refute calls.any? { |line| line.match?(/brew (install|upgrade)/) }
     refute calls.any? { |line| line.start_with?("rbenv install") }
     assert_includes calls,
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --help"
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)}"
   end
 
   def test_known_homebrew_candidates_apply_shellenv_to_current_process
@@ -309,7 +356,7 @@ class BootstrapTest < DotfilesTestCase
   def run_bootstrap(environment, *arguments)
     bootstrap = File.expand_path("../bootstrap.sh", __dir__)
     Bundler.with_unbundled_env do
-      Open3.capture3(environment, "bash", bootstrap, *(arguments.empty? ? ["--help"] : arguments))
+      Open3.capture3(environment, "bash", bootstrap, *arguments)
     end
   end
 end
