@@ -27,6 +27,7 @@ class InstallerTest < DotfilesTestCase
     prompt = TestPrompt.new(true)
 
     status = build_installer(
+      options: {only: :mappings},
       config: {mappings: {source => target}},
       runtime: {prompt: prompt}
     ).install
@@ -44,6 +45,7 @@ class InstallerTest < DotfilesTestCase
     prompt = TestPrompt.new(false)
 
     status = build_installer(
+      options: {only: :mappings},
       config: {mappings: {source => target}},
       runtime: {prompt: prompt}
     ).install
@@ -58,7 +60,7 @@ class InstallerTest < DotfilesTestCase
     prompt = TestPrompt.new { raise "dry run prompted" }
 
     status = build_installer(
-      options: {dry_run: true},
+      options: {only: :mappings, dry_run: true},
       config: {mappings: {source => target}},
       runtime: {prompt: prompt}
     ).install
@@ -73,7 +75,7 @@ class InstallerTest < DotfilesTestCase
     prompt = TestPrompt.new { raise "--yes prompted" }
 
     status = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {source => target}},
       runtime: {prompt: prompt}
     ).install
@@ -88,7 +90,7 @@ class InstallerTest < DotfilesTestCase
     second_target = tmp_path("home/.missing")
 
     status = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {source => first_target, missing_source => second_target}}
     ).install
 
@@ -105,7 +107,7 @@ class InstallerTest < DotfilesTestCase
     second_target = File.join(blocked_parent, "second")
 
     status = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {first_source => first_target, second_source => second_target}}
     ).install
 
@@ -119,7 +121,7 @@ class InstallerTest < DotfilesTestCase
     create_file(target, "old")
 
     status = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {source => target}}
     ).install
 
@@ -138,7 +140,7 @@ class InstallerTest < DotfilesTestCase
     backup = create_file("#{target}.backup", "older")
 
     status = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {source => target}}
     ).install
 
@@ -154,7 +156,7 @@ class InstallerTest < DotfilesTestCase
   def test_correct_link_is_unchanged_on_repeated_runs
     source, target = create_mapping("gitconfig")
     installer = build_installer(
-      options: {yes: true},
+      options: {only: :mappings, yes: true},
       config: {mappings: {source => target}}
     )
     installer.install
@@ -185,19 +187,72 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(skill_target("tdd"))
   end
 
-  def test_full_setup_uses_injected_command_runner_after_confirmation
+  def test_default_setup_runs_full_setup_without_mapping_confirmation
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = TestCommandRunner.new
+    prompt = TestPrompt.new { raise "default setup prompted" }
+    create_skill("engineering/tdd")
 
     status = build_installer(
-      options: {skip_brew: false, yes: true},
-      config: {mappings: {source => target}, brewfile_path: brewfile},
-      runtime: {command_runner: command_runner}
+      options: {skip_brew: false},
+      config: {
+        mappings: {source => target},
+        brewfile_path: brewfile,
+        local_skills: ["engineering/tdd"]
+      },
+      runtime: {command_runner: command_runner, prompt: prompt}
     ).install
 
     assert_equal 0, status
     assert_equal [["brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert_symlink target, to: source
+    assert_symlink skill_target("tdd")
+  end
+
+  def test_default_dry_run_reports_full_setup_without_execution
+    source, target = create_mapping("gitconfig")
+    brewfile = create_file("dotfiles/Brewfile")
+    nvim_init = tmp_path("home/.config/nvim/init.lua")
+    command_runner = TestCommandRunner.new
+    prompt = TestPrompt.new { raise "default dry run prompted" }
+    create_skill("engineering/tdd")
+
+    status = build_installer(
+      options: {skip_brew: false, dry_run: true},
+      config: {
+        mappings: {source => target},
+        brewfile_path: brewfile,
+        nvim_init_target: nvim_init,
+        local_skills: ["engineering/tdd"]
+      },
+      runtime: {command_runner: command_runner, prompt: prompt}
+    ).install
+
+    assert_equal 0, status
+    assert_equal ["Installing Homebrew packages", "Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
+    assert_empty command_runner.calls
+    refute File.exist?(target)
+    refute File.exist?(skill_target("tdd"))
+    refute @reporter.actions.any? { |action| action[:meta][:message] == "would run nvim --headless +PlugInstall +qa" }
+    assert @reporter.dry_completion_reported
+  end
+
+  def test_default_dry_run_reports_nvim_when_mapping_will_create_its_config
+    source = create_file("dotfiles/init.lua")
+    nvim_init = tmp_path("home/.config/nvim/init.lua")
+
+    status = build_installer(
+      options: {dry_run: true},
+      config: {
+        mappings: {source => nvim_init},
+        nvim_init_target: nvim_init
+      }
+    ).install
+
+    assert_equal 0, status
+    assert @reporter.actions.any? { |action| action[:meta][:message] == "would run nvim --headless +PlugInstall +qa" }
+    refute File.exist?(nvim_init)
   end
 
   def test_installs_explicit_local_skills_from_manifest
@@ -221,18 +276,6 @@ class InstallerTest < DotfilesTestCase
     refute_includes @reporter.phases, "Post-install"
   end
 
-  def test_dry_run_does_not_execute_legacy_skills_phase
-    create_skill("engineering/tdd")
-    build_installer(
-      options: {dry_run: true},
-      config: {local_skills: ["engineering/tdd"]}
-    ).install
-
-    assert_equal ["Linking dotfiles"], @reporter.phases
-    refute File.exist?(skill_target("tdd"))
-    assert @reporter.dry_completion_reported
-  end
-
   private
 
   def build_installer(options: {}, config: {}, runtime: {})
@@ -245,7 +288,8 @@ class InstallerTest < DotfilesTestCase
       local_skills: local_skills,
       skills_manifest_path: @skills_manifest,
       mappings: config.fetch(:mappings, {}),
-      brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile")
+      brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
+      nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua")
     )
 
     Installer.new(

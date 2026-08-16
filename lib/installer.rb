@@ -16,12 +16,9 @@ class Installer
 
   def install
     return install_skills_only if options.skills_only
+    return install_mappings if options.only == :mappings
 
-    plan = plan_mappings
-    return complete_dry_run if options.dry_run
-    return 0 unless confirmed?(plan)
-
-    apply_setup(plan)
+    install_full_setup
   rescue ArgumentError, SystemCallError => error
     report_failure(error)
   end
@@ -39,6 +36,23 @@ class Installer
     0
   end
 
+  def install_mappings
+    plan = plan_mappings
+    return complete_dry_run if options.dry_run
+    return 0 unless confirmed?(plan)
+
+    linker.apply(plan)
+    0
+  end
+
+  def install_full_setup
+    install_brew_packages unless options.skip_brew
+    plan = plan_mappings
+    linker.apply(plan) unless options.dry_run
+    post_install(plan)
+    0
+  end
+
   def complete_dry_run
     reporter.report_dry_completion
     0
@@ -46,15 +60,6 @@ class Installer
 
   def confirmed?(plan)
     plan.empty? || options.yes || runtime.prompt.confirm?
-  end
-
-  def apply_setup(plan)
-    install_brew_packages unless options.skip_brew || options.only == :mappings
-    linker.apply(plan)
-    return 0 if options.only == :mappings
-
-    post_install
-    0
   end
 
   def report_failure(error)
@@ -123,16 +128,16 @@ class Installer
     end
   end
 
-  def post_install
+  def post_install(mapping_plan)
     install_skills
 
     reporter.report_phase("Post-install")
-    install_nvim_plugins
+    install_nvim_plugins(mapping_plan)
     report_completion
   end
 
-  def install_nvim_plugins
-    return unless File.exist?(config.nvim_init_target)
+  def install_nvim_plugins(mapping_plan)
+    return unless nvim_config_available?(mapping_plan)
 
     if options.dry_run
       reporter.report_action(:skipped, message: "would run nvim --headless +PlugInstall +qa")
@@ -140,6 +145,12 @@ class Installer
     end
 
     runtime.command_runner.call("nvim", "--headless", "+PlugInstall", "+qa", err: File::NULL)
+  end
+
+  def nvim_config_available?(mapping_plan)
+    File.exist?(config.nvim_init_target) || mapping_plan.any? do |operation|
+      operation[:type] == :create_symlink && operation[:target] == config.nvim_init_target
+    end
   end
 
   def report_completion

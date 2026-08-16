@@ -6,6 +6,6 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "installer"
 require "setup_options"
 
-dry_run = ARGV.include?("--dry-run") || ARGV.include?("-n")
+dry_run = ARGV.include?("--dry-run")
 
 exit Installer.new(options: SetupOptions.new(skills_only: true, dry_run: dry_run)).install

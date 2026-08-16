@@ -100,7 +100,6 @@ function precmd {
 
 source $DOTFILES/zsh/configs/aliases.zsh
 source $DOTFILES/zsh/configs/functions.zsh
-source $DOTFILES/zsh/configs/opencode.zsh
 source $DOTFILES/zsh/configs/plugins.zsh
 source $DOTFILES/zsh/configs/prompt.zsh
 
