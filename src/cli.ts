@@ -25,6 +25,8 @@ interface CliOptions {
   yes: boolean;
 }
 
+export const defaultPhases = ["homebrew", "mappings"] satisfies Phase[];
+
 function parseArguments(args: string[]): CliOptions {
   const options: CliOptions = { dryRun: false, help: false, yes: false };
   for (let index = 0; index < args.length; index += 1) {
@@ -105,7 +107,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     prompt: {
       choosePhases: async () => {
         const answer = await multiselect({
-          initialValues: ["homebrew", "mappings"],
+          initialValues: defaultPhases,
           message: "Select setup phases",
           options: [
             { label: "Homebrew packages", value: "homebrew" },

@@ -34,13 +34,8 @@ pnpm run setup --only mappings --yes
 pnpm run setup --only homebrew --dry-run
 ```
 
-The Ruby installer remains available while its remaining phases are migrated:
-
-1. Install Homebrew (if not already installed)
-2. Install packages from `Brewfile`
-3. Symlink config files to their target locations (backing up replaced files to `.backup`)
-4. Install agent skills into OpenCode
-5. Install Neovim plugins
+The Ruby installer remains available as a legacy full-setup path while agent
+skills and Neovim plugin installation are migrated to the TypeScript setup.
 
 ### Manual Installation
 

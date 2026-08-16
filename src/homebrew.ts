@@ -7,8 +7,8 @@ export interface CommandResult {
 }
 
 export interface CommandAdapter {
-  detect?(executable: string): Promise<string | undefined>;
-  run?(command: string, args: string[]): Promise<CommandResult>;
+  detect(executable: string): Promise<string | undefined>;
+  run(command: string, args: string[]): Promise<CommandResult>;
 }
 
 export const homebrewInstallerCommand =
@@ -19,10 +19,14 @@ export type HomebrewPlanItem =
   | { action: "install-homebrew" }
   | { action: "brew-bundle"; brewfile: string; executable?: string };
 
+export type HomebrewPlan =
+  | { kind: "available"; brewfile: string; executable: string }
+  | { kind: "install"; brewfile: string };
+
 export async function buildHomebrewPlan(
   repositoryRoot: string,
   command: CommandAdapter,
-): Promise<HomebrewPlanItem[]> {
+): Promise<HomebrewPlan> {
   const brewfile = join(repositoryRoot, "Brewfile");
   let brewfileStat: Awaited<ReturnType<typeof stat>>;
   try {
@@ -37,53 +41,67 @@ export async function buildHomebrewPlan(
     throw new Error(`Brewfile must be a readable file: ${brewfile}`);
   }
 
-  if (!command.detect) throw new Error("Homebrew detection is not configured");
   const executable = await command.detect("brew");
-  return [
-    ...(executable
-      ? [{ action: "homebrew-available" as const, executable }]
-      : [{ action: "install-homebrew" as const }]),
-    { action: "brew-bundle", brewfile, executable },
-  ];
+  return executable
+    ? { kind: "available", brewfile, executable }
+    : { kind: "install", brewfile };
+}
+
+export function homebrewPlanItems(plan: HomebrewPlan): HomebrewPlanItem[] {
+  return plan.kind === "available"
+    ? [
+        { action: "homebrew-available", executable: plan.executable },
+        {
+          action: "brew-bundle",
+          brewfile: plan.brewfile,
+          executable: plan.executable,
+        },
+      ]
+    : [
+        { action: "install-homebrew" },
+        { action: "brew-bundle", brewfile: plan.brewfile },
+      ];
+}
+
+async function findHomebrew(
+  command: CommandAdapter,
+): Promise<string | undefined> {
+  let executable = await command.detect("brew");
+  for (const candidate of ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) {
+    executable ??= await command.detect(candidate);
+  }
+  return executable;
+}
+
+async function installHomebrew(command: CommandAdapter): Promise<string> {
+  const result = await command.run("/bin/bash", [
+    "-c",
+    homebrewInstallerCommand,
+  ]);
+  if (result.exitCode !== 0)
+    throw new Error(
+      `Homebrew installer failed with exit code ${result.exitCode}`,
+    );
+
+  const executable = await findHomebrew(command);
+  if (executable) return executable;
+  throw new Error(
+    "Homebrew installation completed, but the brew executable could not be found",
+  );
 }
 
 export async function applyHomebrewPlan(
-  plan: HomebrewPlanItem[],
+  plan: HomebrewPlan,
   command: CommandAdapter,
 ): Promise<void> {
-  if (!command.detect || !command.run)
-    throw new Error("Homebrew command execution is not configured");
+  const executable =
+    plan.kind === "available"
+      ? plan.executable
+      : await installHomebrew(command);
 
-  let executable = plan.find(
-    (
-      item,
-    ): item is Extract<HomebrewPlanItem, { action: "homebrew-available" }> =>
-      item.action === "homebrew-available",
-  )?.executable;
-  if (plan.some((item) => item.action === "install-homebrew")) {
-    const result = await command.run("/bin/bash", [
-      "-c",
-      homebrewInstallerCommand,
-    ]);
-    if (result.exitCode !== 0)
-      throw new Error(
-        `Homebrew installer failed with exit code ${result.exitCode}`,
-      );
-    executable = await command.detect("brew");
-    for (const candidate of ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) {
-      executable ??= await command.detect(candidate);
-    }
-    if (!executable)
-      throw new Error(
-        "Homebrew installation completed, but the brew executable could not be found",
-      );
-  }
-
-  const bundle = plan.find((item) => item.action === "brew-bundle");
-  if (!bundle || !executable) return;
   const result = await command.run(executable, [
     "bundle",
-    `--file=${bundle.brewfile}`,
+    `--file=${plan.brewfile}`,
   ]);
   if (result.exitCode !== 0)
     throw new Error(`brew bundle failed with exit code ${result.exitCode}`);

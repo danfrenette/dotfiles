@@ -2,8 +2,10 @@ import {
   applyHomebrewPlan,
   buildHomebrewPlan,
   type CommandAdapter,
+  type HomebrewPlan,
   type HomebrewPlanItem,
   homebrewInstallerCommand,
+  homebrewPlanItems,
 } from "./homebrew.js";
 import { applyMappingPlan } from "./mappings/apply.js";
 import {
@@ -45,7 +47,7 @@ function describePlanItem(item: PlanItem): string {
     case "install-homebrew":
       return `run ${homebrewInstallerCommand}`;
     case "brew-bundle":
-      return `run ${item.executable ?? "brew"} bundle --file=${item.brewfile}`;
+      return `run ${item.executable ?? "brew"} bundle --file=${item.brewfile} to install or update declared packages`;
     case "create-parent":
       return `create directory ${item.path}`;
     case "remove-backup":
@@ -68,7 +70,7 @@ function describePlanItem(item: PlanItem): string {
 export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   const warnings: string[] = [];
   const plan: PlanItem[] = [];
-  let homebrewPlan: HomebrewPlanItem[] = [];
+  let homebrewPlan: HomebrewPlan | undefined;
   let mappingPlan: MappingPlan = [];
 
   try {
@@ -88,7 +90,10 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
         options.repositoryRoot,
         options.homeRoot,
       );
-    plan.push(...homebrewPlan, ...mappingPlan);
+    plan.push(
+      ...(homebrewPlan ? homebrewPlanItems(homebrewPlan) : []),
+      ...mappingPlan,
+    );
     options.command.write(
       plan.map((item) => `- ${describePlanItem(item)}`).join("\n"),
     );
@@ -99,8 +104,7 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
       return { exitCode: 0, plan, warnings };
     }
 
-    if (phases.includes("homebrew"))
-      await applyHomebrewPlan(homebrewPlan, options.command);
+    if (homebrewPlan) await applyHomebrewPlan(homebrewPlan, options.command);
     if (phases.includes("mappings")) await applyMappingPlan(mappingPlan);
     return { exitCode: 0, plan, warnings };
   } catch (error) {

@@ -43,12 +43,24 @@ async function createRepository(
   return repositoryRoot;
 }
 
+function testCommand(
+  overrides: Partial<SetupOptions["command"]> = {},
+): SetupOptions["command"] {
+  return {
+    detect: async () => undefined,
+    platform: () => "darwin",
+    run: async () => ({ exitCode: 0 }),
+    write: () => undefined,
+    ...overrides,
+  };
+}
+
 function mappingSetupOptions(
   repositoryRoot: string,
   homeRoot: string,
 ): SetupOptions {
   return {
-    command: { platform: () => "darwin", write: () => undefined },
+    command: testCommand(),
     homeRoot,
     phases: ["mappings"],
     prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -73,16 +85,15 @@ describe("runSetup", () => {
     const output: string[] = [];
 
     const result = await runSetup({
-      command: {
+      command: testCommand({
         detect: async (executable) =>
           executable === "brew" ? "/custom/bin/brew" : undefined,
-        platform: () => "darwin",
         run: async (command, args) => {
           commands.push({ command, args });
           return { exitCode: 0 };
         },
         write: (message) => output.push(message),
-      },
+      }),
       homeRoot: await temporaryDirectory(),
       phases: ["homebrew"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -111,16 +122,14 @@ describe("runSetup", () => {
     const commands: Array<{ command: string; args: string[] }> = [];
 
     const result = await runSetup({
-      command: {
+      command: testCommand({
         detect: async (executable) =>
           executable === "/opt/homebrew/bin/brew" ? executable : undefined,
-        platform: () => "darwin",
         run: async (command, args) => {
           commands.push({ command, args });
           return { exitCode: 0 };
         },
-        write: () => undefined,
-      },
+      }),
       homeRoot: await temporaryDirectory(),
       phases: ["homebrew"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -128,10 +137,6 @@ describe("runSetup", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.plan.map((item) => item.action)).toEqual([
-      "install-homebrew",
-      "brew-bundle",
-    ]);
     expect(commands).toEqual([
       {
         command: "/bin/bash",
@@ -147,6 +152,34 @@ describe("runSetup", () => {
     ]);
   });
 
+  it("finds an Intel Homebrew installation before applying the Brewfile", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    const brewfile = join(repositoryRoot, "Brewfile");
+    await writeFile(brewfile, 'brew "git"\n');
+    const commands: Array<{ command: string; args: string[] }> = [];
+
+    const result = await runSetup({
+      command: testCommand({
+        detect: async (executable) =>
+          executable === "/usr/local/bin/brew" ? executable : undefined,
+        run: async (command, args) => {
+          commands.push({ command, args });
+          return { exitCode: 0 };
+        },
+      }),
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => true },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(commands.at(-1)).toEqual({
+      command: "/usr/local/bin/brew",
+      args: ["bundle", `--file=${brewfile}`],
+    });
+  });
+
   it("fails all selected phases before mutation when the Brewfile is missing", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: link\n    source: source\n    target: target\n",
@@ -157,13 +190,12 @@ describe("runSetup", () => {
     await writeFile(target, "current contents\n");
 
     const result = await runSetup({
-      command: {
+      command: testCommand({
         detect: async () => {
           throw new Error("detection should not run");
         },
-        platform: () => "darwin",
         write: () => undefined,
-      },
+      }),
       homeRoot,
       phases: ["homebrew", "mappings"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -188,15 +220,12 @@ describe("runSetup", () => {
     const commands: string[] = [];
 
     const result = await runSetup({
-      command: {
-        detect: async () => undefined,
-        platform: () => "darwin",
+      command: testCommand({
         run: async (command) => {
           commands.push(command);
           return { exitCode: 0 };
         },
-        write: () => undefined,
-      },
+      }),
       homeRoot,
       phases: ["homebrew", "mappings"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -217,17 +246,16 @@ describe("runSetup", () => {
     const repositoryRoot = await temporaryDirectory();
     await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
     const commands: string[] = [];
+    const output: string[] = [];
 
     const result = await runSetup({
-      command: {
-        detect: async () => undefined,
-        platform: () => "darwin",
+      command: testCommand({
         run: async (command) => {
           commands.push(command);
           return { exitCode: 0 };
         },
-        write: () => undefined,
-      },
+        write: (message) => output.push(message),
+      }),
       dryRun: true,
       homeRoot: await temporaryDirectory(),
       phases: ["homebrew"],
@@ -236,10 +264,35 @@ describe("runSetup", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.plan.map((item) => item.action)).toEqual([
-      "install-homebrew",
-      "brew-bundle",
-    ]);
+    expect(output.join("\n")).toContain("run /bin/bash -c");
+    expect(output.join("\n")).toContain("brew bundle --file=");
+    expect(output.join("\n")).toContain(
+      "to install or update declared packages",
+    );
+    expect(commands).toEqual([]);
+  });
+
+  it("runs no Homebrew command when confirmation is declined", async () => {
+    const repositoryRoot = await temporaryDirectory();
+    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
+    const commands: string[] = [];
+
+    const result = await runSetup({
+      command: testCommand({
+        detect: async () => "/custom/bin/brew",
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 0 };
+        },
+      }),
+      homeRoot: await temporaryDirectory(),
+      phases: ["homebrew"],
+      prompt: { choosePhases: async () => [], confirm: async () => false },
+      repositoryRoot,
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.warnings).toEqual(["Setup cancelled; no changes were made"]);
     expect(commands).toEqual([]);
   });
 
@@ -253,15 +306,12 @@ describe("runSetup", () => {
     const commands: string[] = [];
 
     const result = await runSetup({
-      command: {
-        detect: async () => undefined,
-        platform: () => "darwin",
+      command: testCommand({
         run: async (command) => {
           commands.push(command);
           return { exitCode: 17 };
         },
-        write: () => undefined,
-      },
+      }),
       homeRoot,
       phases: ["homebrew", "mappings"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -284,15 +334,12 @@ describe("runSetup", () => {
     const commands: string[] = [];
 
     const result = await runSetup({
-      command: {
-        detect: async () => undefined,
-        platform: () => "darwin",
+      command: testCommand({
         run: async (command) => {
           commands.push(command);
           return { exitCode: 0 };
         },
-        write: () => undefined,
-      },
+      }),
       homeRoot: await temporaryDirectory(),
       phases: ["homebrew"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -315,12 +362,10 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
 
     const result = await runSetup({
-      command: {
+      command: testCommand({
         detect: async () => "/custom/bin/brew",
-        platform: () => "darwin",
         run: async () => ({ exitCode: 9 }),
-        write: () => undefined,
-      },
+      }),
       homeRoot,
       phases: ["homebrew", "mappings"],
       prompt: { choosePhases: async () => [], confirm: async () => true },
@@ -334,30 +379,6 @@ describe("runSetup", () => {
     });
   });
 
-  it("does not build mappings during a Homebrew-only run", async () => {
-    const repositoryRoot = await temporaryDirectory();
-    await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
-
-    const result = await runSetup({
-      command: {
-        detect: async () => "/custom/bin/brew",
-        platform: () => "darwin",
-        run: async () => ({ exitCode: 0 }),
-        write: () => undefined,
-      },
-      homeRoot: await temporaryDirectory(),
-      phases: ["homebrew"],
-      prompt: { choosePhases: async () => [], confirm: async () => true },
-      repositoryRoot,
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(result.plan.map((item) => item.action)).toEqual([
-      "homebrew-available",
-      "brew-bundle",
-    ]);
-  });
-
   it("runs Homebrew and mappings when both default phases are selected", async () => {
     const repositoryRoot = await createRepository(
       "mappings:\n  - operation: link\n    source: source\n    target: target\n",
@@ -365,14 +386,16 @@ describe("runSetup", () => {
     );
     await writeFile(join(repositoryRoot, "Brewfile"), 'brew "git"\n');
     const homeRoot = await temporaryDirectory();
+    const commands: string[] = [];
 
     const result = await runSetup({
-      command: {
+      command: testCommand({
         detect: async () => "/custom/bin/brew",
-        platform: () => "darwin",
-        run: async () => ({ exitCode: 0 }),
-        write: () => undefined,
-      },
+        run: async (command) => {
+          commands.push(command);
+          return { exitCode: 0 };
+        },
+      }),
       homeRoot,
       prompt: {
         choosePhases: async () => ["homebrew", "mappings"],
@@ -382,14 +405,10 @@ describe("runSetup", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.plan.map((item) => item.action)).toEqual([
-      "homebrew-available",
-      "brew-bundle",
-      "create-link",
-    ]);
     expect(await readlink(join(homeRoot, "target"))).toBe(
       join(repositoryRoot, "source"),
     );
+    expect(commands).toEqual(["/custom/bin/brew"]);
   });
 
   it("copies a regular file while preserving its mode", async () => {
@@ -405,10 +424,9 @@ describe("runSetup", () => {
 
     const result = await runSetup({
       ...mappingSetupOptions(repositoryRoot, homeRoot),
-      command: {
-        platform: () => "darwin",
+      command: testCommand({
         write: (message) => output.push(message),
-      },
+      }),
     });
     expect(output.join("\n")).toContain(`copy ${source} to ${target}`);
 
@@ -492,10 +510,9 @@ describe("runSetup", () => {
     const output: string[] = [];
     const options: SetupOptions = {
       ...mappingSetupOptions(repositoryRoot, homeRoot),
-      command: {
-        platform: () => "darwin",
+      command: testCommand({
         write: (message: string) => output.push(message),
-      },
+      }),
     };
     await runSetup(options);
 
@@ -681,7 +698,7 @@ describe("runSetup", () => {
     const homeRoot = await temporaryDirectory();
 
     const result = await runSetup({
-      command: { platform: () => "darwin", write: () => undefined },
+      command: testCommand(),
       homeRoot,
       prompt: {
         choosePhases: async () => ["mappings"],
@@ -713,10 +730,9 @@ describe("runSetup", () => {
 
     const result = await runSetup({
       ...mappingSetupOptions(repositoryRoot, homeRoot),
-      command: {
-        platform: () => "darwin",
+      command: testCommand({
         write: (message) => output.push(message),
-      },
+      }),
     });
 
     expect(result.plan.map((item) => item.action)).toEqual([
