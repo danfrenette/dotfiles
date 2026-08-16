@@ -2,19 +2,22 @@
 
 require_relative "linker"
 require_relative "config"
-require_relative "homebrew_operation"
+require_relative "phases/homebrew"
 require_relative "skill_installer"
 require_relative "setup_options"
 require_relative "setup_runtime"
 
 class Installer
-  class HomebrewError < StandardError; end
-
   def initialize(options: SetupOptions.new, config: Config.new, runtime: SetupRuntime.new)
     @options = options
     @config = config
     @runtime = runtime
     @linker = Linker.new(dry_run: options.dry_run)
+    @homebrew = Phases::Homebrew.new(
+      brewfile_path: config.brewfile_path,
+      command_runner: runtime.command_runner,
+      reporter: runtime.reporter
+    )
   end
 
   def install
@@ -23,13 +26,13 @@ class Installer
     return install_mappings if options.only == :mappings
 
     install_full_setup
-  rescue ArgumentError, HomebrewError, SystemCallError => error
+  rescue ArgumentError, Phases::Homebrew::Error, SystemCallError => error
     report_failure(error)
   end
 
   private
 
-  attr_reader :options, :config, :runtime, :linker
+  attr_reader :options, :config, :runtime, :linker, :homebrew
 
   def reporter
     runtime.reporter
@@ -50,21 +53,21 @@ class Installer
   end
 
   def install_homebrew
-    plan = plan_homebrew
+    plan = homebrew.plan
     return complete_dry_run if options.dry_run
     return 0 unless confirmed?(plan)
 
-    apply_homebrew(plan)
+    homebrew.apply(plan)
     reporter.report_completion
     0
   end
 
   def install_full_setup
-    homebrew_plan = plan_homebrew unless options.skip_brew
+    homebrew_plan = homebrew.plan unless options.skip_brew
     mapping_plan = plan_mappings
 
     unless options.dry_run
-      apply_homebrew(homebrew_plan) if homebrew_plan
+      homebrew.apply(homebrew_plan) if homebrew_plan
       linker.apply(mapping_plan)
     end
 
@@ -118,32 +121,6 @@ class Installer
     raise "#{config.opencode_skills_target} is a symlink into this repo (#{destination})"
   rescue Errno::ENOENT
     nil
-  end
-
-  def plan_homebrew
-    reporter.report_phase("Installing Homebrew packages")
-
-    brew = runtime.command_runner.find_executable(
-      "brew",
-      candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
-    )
-    raise ArgumentError, "Homebrew not found; run ./bootstrap.sh first" unless brew
-
-    brewfile = config.brewfile_path
-    raise ArgumentError, "Brewfile not found: #{brewfile}" unless File.exist?(brewfile)
-    raise ArgumentError, "Brewfile is not a regular file: #{brewfile}" unless File.file?(brewfile)
-    raise ArgumentError, "Brewfile is not readable: #{brewfile}" unless File.readable?(brewfile)
-
-    [HomebrewOperation.available(brew), HomebrewOperation.bundle(brew, brewfile)].tap do |plan|
-      plan.each { |operation| reporter.report_action(operation.type, operation.meta) }
-    end
-  end
-
-  def apply_homebrew(plan)
-    operation = plan.find { |item| item.type == :bundle }
-    result = runtime.command_runner.run(*operation.command)
-    raise HomebrewError, "brew bundle could not start" if result.nil?
-    raise HomebrewError, "brew bundle exited with a nonzero status" unless result
   end
 
   def plan_mappings
