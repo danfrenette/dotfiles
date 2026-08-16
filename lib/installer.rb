@@ -16,27 +16,15 @@ class Installer
   end
 
   def install
-    if options.skills_only
-      install_skills
-      return 0
-    end
+    return install_skills_only if options.skills_only
 
     plan = plan_mappings
-    if options.dry_run
-      reporter.report_dry_completion
-      return 0
-    end
-    return 0 unless plan.empty? || options.yes || runtime.prompt.confirm?
+    return complete_dry_run if options.dry_run
+    return 0 unless confirmed?(plan)
 
-    install_brew_packages unless options.skip_brew || options.only == :mappings
-    linker.apply(plan)
-    return 0 if options.only == :mappings
-
-    post_install
-    0
+    apply_setup(plan)
   rescue ArgumentError, SystemCallError => error
-    reporter.report_warning(error.message)
-    1
+    report_failure(error)
   end
 
   private
@@ -45,6 +33,34 @@ class Installer
 
   def reporter
     runtime.reporter
+  end
+
+  def install_skills_only
+    install_skills
+    0
+  end
+
+  def complete_dry_run
+    reporter.report_dry_completion
+    0
+  end
+
+  def confirmed?(plan)
+    plan.empty? || options.yes || runtime.prompt.confirm?
+  end
+
+  def apply_setup(plan)
+    install_brew_packages unless options.skip_brew || options.only == :mappings
+    linker.apply(plan)
+    return 0 if options.only == :mappings
+
+    post_install
+    0
+  end
+
+  def report_failure(error)
+    reporter.report_warning(error.message)
+    1
   end
 
   def install_skills
