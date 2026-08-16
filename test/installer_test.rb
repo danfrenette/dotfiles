@@ -100,6 +100,56 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(second_target)
   end
 
+  def test_manifest_source_symlink_escape_prevents_all_mapping_changes
+    repository_root = create_dir("manifest-repository")
+    home_root = create_dir("manifest-home")
+    outside = create_dir("outside")
+    create_file("manifest-repository/safe", "safe")
+    create_file("outside/secret", "secret")
+    File.symlink(outside, File.join(repository_root, "escaped"))
+    manifest_path = create_file("escape-mappings.yml", <<~YAML)
+      mappings:
+        - operation: link
+          source: safe
+          target: .safe
+        - operation: copy
+          source: escaped/secret
+          target: .secret
+    YAML
+
+    status = build_manifest_installer(repository_root, home_root, manifest_path).install
+
+    assert_equal 1, status
+    assert @reporter.warnings.any? { |warning| warning.include?("source parent escapes repository root") }
+    refute File.exist?(File.join(home_root, ".safe"))
+    refute File.exist?(File.join(home_root, ".secret"))
+  end
+
+  def test_manifest_backup_collision_preserves_all_targets
+    repository_root = create_dir("collision-repository")
+    home_root = create_dir("collision-home")
+    create_file("collision-repository/first", "new first")
+    create_file("collision-repository/second", "new second")
+    target = create_file("collision-home/x", "old first")
+    backup_target = create_file("collision-home/x.backup", "valid second")
+    manifest_path = create_file("collision-mappings.yml", <<~YAML)
+      mappings:
+        - operation: copy
+          source: first
+          target: x
+        - operation: copy
+          source: second
+          target: x.backup
+    YAML
+
+    status = build_manifest_installer(repository_root, home_root, manifest_path).install
+
+    assert_equal 1, status
+    assert @reporter.warnings.any? { |warning| warning.include?("backup path overlaps mapping target") }
+    assert_equal "old first", File.read(target)
+    assert_equal "valid second", File.read(backup_target)
+  end
+
   def test_blocked_parent_late_in_manifest_prevents_all_mapping_changes
     first_source, first_target = create_mapping("first")
     second_source, = create_mapping("second")
@@ -326,6 +376,18 @@ class InstallerTest < DotfilesTestCase
   end
 
   private
+
+  def build_manifest_installer(repository_root, home_root, manifest_path)
+    Installer.new(
+      options: SetupOptions.new(skip_brew: true, only: :mappings, yes: true),
+      config: Config.new(
+        repository_root: repository_root,
+        home_root: home_root,
+        mappings_path: manifest_path
+      ),
+      runtime: SetupRuntime.new(reporter: @reporter)
+    )
+  end
 
   def build_installer(options: {}, config: {}, runtime: {})
     local_skills = config.fetch(:local_skills, [])

@@ -6,6 +6,7 @@ require "yaml"
 class MappingManifest
   include Enumerable
 
+  BACKUP_SUFFIX = ".backup"
   Mapping = Data.define(:operation, :source, :target) do
     def link?
       operation == :link
@@ -13,6 +14,10 @@ class MappingManifest
 
     def copy?
       operation == :copy
+    end
+
+    def backup_target
+      "#{target}#{MappingManifest::BACKUP_SUFFIX}"
     end
   end
   InvalidManifest = Class.new(ArgumentError)
@@ -89,6 +94,14 @@ class MappingManifest
 
       validate_target_parent!(mapping.target)
     end
+
+    entries.each do |mapping|
+      collision = entries.find { |other| overlapping?(mapping.backup_target, other.target) }
+      if collision
+        raise InvalidManifest,
+          "mapping backup path overlaps mapping target: #{mapping.backup_target} and #{collision.target}"
+      end
+    end
   end
 
   def overlapping?(first, second)
@@ -111,13 +124,25 @@ class MappingManifest
     missing = entries.filter_map do |mapping|
       mapping.source unless source_exists?(mapping)
     end
-    return if missing.empty?
+    unless missing.empty?
+      raise InvalidManifest, "mapping sources do not exist: #{missing.join(", ")}"
+    end
 
-    raise InvalidManifest, "mapping sources do not exist: #{missing.join(", ")}"
+    entries.each { |mapping| validate_source_parent!(mapping.source) }
   end
 
   def source_exists?(mapping)
     File.exist?(mapping.source) || (mapping.copy? && File.symlink?(mapping.source))
+  end
+
+  def validate_source_parent!(source)
+    resolved_parent = File.realpath(File.dirname(source))
+    resolved_repository = File.realpath(repository_root)
+    return if resolved_parent == resolved_repository || resolved_parent.start_with?("#{resolved_repository}/")
+
+    raise InvalidManifest, "mapping source parent escapes repository root: #{source}"
+  rescue Errno::ENOENT, Errno::ELOOP, Errno::ENOTDIR
+    raise InvalidManifest, "mapping source parent cannot be resolved safely: #{source}"
   end
 
   def path_exists?(path)

@@ -1,16 +1,17 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require_relative "mapping_manifest"
 require_relative "mapping_plan_applier"
 require_relative "mapping_planner"
 
 # Creates symlinks from dotfiles to target locations
 class Linker
-  BACKUP_SUFFIX = ".backup"
+  BACKUP_SUFFIX = MappingManifest::BACKUP_SUFFIX
 
   def initialize(
     dry_run: false,
-    planner: MappingPlanner.new(backup_suffix: BACKUP_SUFFIX),
+    planner: MappingPlanner.new,
     plan_applier: MappingPlanApplier.new
   )
     @dry_run = dry_run

@@ -4,9 +4,8 @@ require_relative "copy_comparison"
 require_relative "mapping_operation"
 
 class MappingChange
-  def initialize(mapping, backup_suffix:)
+  def initialize(mapping)
     @mapping = mapping
-    @backup_suffix = backup_suffix
     @source = File.expand_path(mapping.source)
     @target = File.expand_path(mapping.target)
   end
@@ -21,7 +20,7 @@ class MappingChange
 
   private
 
-  attr_reader :mapping, :backup_suffix, :source, :target
+  attr_reader :mapping, :source, :target
 
   def validate_source!
     exists = File.exist?(source) || (mapping.copy? && File.symlink?(source))
@@ -93,6 +92,6 @@ class MappingChange
   end
 
   def backup_path
-    @backup_path ||= "#{target}#{backup_suffix}"
+    mapping.backup_target
   end
 end

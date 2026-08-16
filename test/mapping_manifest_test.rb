@@ -57,6 +57,32 @@ class MappingManifestTest < DotfilesTestCase
     assert_invalid(manifest(target: "escaped/file"), /escapes home root/)
   end
 
+  def test_rejects_source_with_symlinked_ancestor_that_escapes_repository
+    outside = create_dir("outside")
+    create_file("outside/secret")
+    File.symlink(outside, File.join(@repository_root, "escaped"))
+
+    assert_invalid(manifest(operation: "copy", source: "escaped/secret"), /source parent escapes repository root/)
+  end
+
+  def test_copy_allows_source_itself_to_be_an_external_symlink
+    outside = create_file("outside-file")
+    File.symlink(outside, File.join(@repository_root, "external-link"))
+
+    mapping = load_manifest(manifest(operation: "copy", source: "external-link")).first
+
+    assert mapping.copy?
+    assert_equal outside, File.readlink(mapping.source)
+  end
+
+  def test_rejects_targets_that_collide_with_generated_backup_paths
+    create_file("repository/first")
+    create_file("repository/second")
+
+    assert_invalid(two_entry_manifest("x", "x.backup"), /backup path overlaps mapping target/)
+    assert_invalid(two_entry_manifest("x", "x.backup/nested"), /backup path overlaps mapping target/)
+  end
+
   def test_reports_all_missing_sources
     error = assert_raises(MappingManifest::InvalidManifest) do
       load_manifest(<<~YAML)
