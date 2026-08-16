@@ -70,7 +70,8 @@ class BootstrapTest < DotfilesTestCase
       "FAKE_BIN" => bin,
       "HOME" => create_dir("home"),
       "PATH" => "#{bin}:/usr/bin:/bin",
-      "INSTALLED_RUBY" => "4.0.3"
+      "INSTALLED_RUBY" => "4.0.3",
+      "MISSING_FORMULA" => "ruby-build"
     }
 
     _stdout, stderr, status = run_bootstrap(environment)

@@ -46,9 +46,9 @@ fi
 
 eval "$("$BREW" shellenv)"
 ensure_formula "$BREW" rbenv
-ensure_formula "$BREW" ruby-build
 
 if ! rbenv versions --bare | grep -Fxq "$RUBY_VERSION"; then
+  ensure_formula "$BREW" ruby-build
   if ! rbenv install -l | grep -Fxq "$RUBY_VERSION"; then
     "$BREW" upgrade ruby-build
   fi
