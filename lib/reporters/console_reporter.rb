@@ -18,7 +18,9 @@ module Reporters
       create_symlink: "[LINK]",
       create_copy: "[COPY]",
       unchanged: "[OK]",
-      unchanged_copy: "[OK]"
+      unchanged_copy: "[OK]",
+      available: "[OK]",
+      bundle: "[BREW]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -97,6 +99,10 @@ module Reporters
         "#{format_path(meta[:source])} -> #{meta[:target]}"
       when :unchanged, :unchanged_copy
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
+      when :available
+        "Homebrew executable: #{meta[:path]}"
+      when :bundle
+        "#{meta[:command].join(" ")} (#{meta[:effect]})"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
       end

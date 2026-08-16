@@ -2,11 +2,14 @@
 
 require_relative "linker"
 require_relative "config"
+require_relative "homebrew_operation"
 require_relative "skill_installer"
 require_relative "setup_options"
 require_relative "setup_runtime"
 
 class Installer
+  class HomebrewError < StandardError; end
+
   def initialize(options: SetupOptions.new, config: Config.new, runtime: SetupRuntime.new)
     @options = options
     @config = config
@@ -16,10 +19,11 @@ class Installer
 
   def install
     return install_skills_only if options.skills_only
+    return install_homebrew if options.only == :homebrew
     return install_mappings if options.only == :mappings
 
     install_full_setup
-  rescue ArgumentError, SystemCallError => error
+  rescue ArgumentError, HomebrewError, SystemCallError => error
     report_failure(error)
   end
 
@@ -45,11 +49,26 @@ class Installer
     0
   end
 
+  def install_homebrew
+    plan = plan_homebrew
+    return complete_dry_run if options.dry_run
+    return 0 unless confirmed?(plan)
+
+    apply_homebrew(plan)
+    reporter.report_completion
+    0
+  end
+
   def install_full_setup
-    install_brew_packages unless options.skip_brew
-    plan = plan_mappings
-    linker.apply(plan) unless options.dry_run
-    post_install(plan)
+    homebrew_plan = plan_homebrew unless options.skip_brew
+    mapping_plan = plan_mappings
+
+    unless options.dry_run
+      apply_homebrew(homebrew_plan) if homebrew_plan
+      linker.apply(mapping_plan)
+    end
+
+    post_install(mapping_plan)
     0
   end
 
@@ -101,21 +120,30 @@ class Installer
     nil
   end
 
-  def install_brew_packages
+  def plan_homebrew
     reporter.report_phase("Installing Homebrew packages")
 
-    unless File.exist?(config.brewfile_path)
-      reporter.report_warning("Brewfile not found, skipping")
-      return
-    end
+    brew = runtime.command_runner.find_executable(
+      "brew",
+      candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]
+    )
+    raise ArgumentError, "Homebrew not found; run ./bootstrap.sh first" unless brew
 
-    if options.dry_run
-      reporter.report_action(:skipped, message: "brew bundle --file=#{config.brewfile_path}")
-      return
-    end
+    brewfile = config.brewfile_path
+    raise ArgumentError, "Brewfile not found: #{brewfile}" unless File.exist?(brewfile)
+    raise ArgumentError, "Brewfile is not a regular file: #{brewfile}" unless File.file?(brewfile)
+    raise ArgumentError, "Brewfile is not readable: #{brewfile}" unless File.readable?(brewfile)
 
-    success = runtime.command_runner.call("brew", "bundle", "--file=#{config.brewfile_path}")
-    reporter.report_warning("brew bundle failed, continuing anyway") unless success
+    [HomebrewOperation.available(brew), HomebrewOperation.bundle(brew, brewfile)].tap do |plan|
+      plan.each { |operation| reporter.report_action(operation.type, operation.meta) }
+    end
+  end
+
+  def apply_homebrew(plan)
+    operation = plan.find { |item| item.type == :bundle }
+    result = runtime.command_runner.run(*operation.command)
+    raise HomebrewError, "brew bundle could not start" if result.nil?
+    raise HomebrewError, "brew bundle exited with a nonzero status" unless result
   end
 
   def plan_mappings
@@ -144,7 +172,7 @@ class Installer
       return
     end
 
-    runtime.command_runner.call("nvim", "--headless", "+PlugInstall", "+qa", err: File::NULL)
+    runtime.command_runner.run("nvim", "--headless", "+PlugInstall", "+qa", err: File::NULL)
   end
 
   def nvim_config_available?(mapping_plan)

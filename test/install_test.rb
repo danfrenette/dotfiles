@@ -14,6 +14,7 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--dry-run"
     assert_includes stdout, "--yes"
     assert_includes stdout, "--only"
+    assert_includes stdout, "homebrew or mappings"
     assert_includes stdout, "--skip-brew"
     assert_includes stdout, "--skills-only"
     assert_empty stderr
@@ -29,6 +30,19 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "git/gitconfig"
     assert_includes stdout, "unchanged"
     refute_includes stdout, "[???]"
+    assert_includes stdout, "Dry run complete!"
+    assert_empty stderr
+  end
+
+  def test_homebrew_dry_run_parses_and_prints_exact_plan
+    bin = create_dir("bin")
+    brew = create_executable(bin, "brew")
+
+    stdout, stderr, status = run_install("--only", "homebrew", "--dry-run", path: bin)
+
+    assert status.success?, stderr
+    assert_includes stdout, "Homebrew executable: #{brew}"
+    assert_includes stdout, "#{brew} bundle --file=#{File.expand_path("../Brewfile", __dir__)}"
     assert_includes stdout, "Dry run complete!"
     assert_empty stderr
   end
@@ -95,10 +109,18 @@ class InstallTest < DotfilesTestCase
 
   private
 
-  def run_install(*arguments, stdin_data: "", home: nil)
+  def create_executable(bin, name)
+    path = File.join(bin, name)
+    File.write(path, "#!/bin/sh\nexit 0\n")
+    FileUtils.chmod("+x", path)
+    path
+  end
+
+  def run_install(*arguments, stdin_data: "", home: nil, path: nil)
     install = File.expand_path("../install.rb", __dir__)
     environment = {}
     environment["HOME"] = home if home
+    environment["PATH"] = path if path
     Bundler.with_unbundled_env do
       Open3.capture3(environment, RbConfig.ruby, install, *arguments, stdin_data: stdin_data)
     end

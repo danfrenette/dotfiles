@@ -37,8 +37,8 @@ class SetupCLI
     OptionParser.new do |parser|
       parser.banner = "Usage: install.rb [options]"
       parser.on("--dry-run", "Print the plan without applying it") { options[:dry_run] = true }
-      parser.on("--yes", "Apply mappings without confirmation") { options[:yes] = true }
-      parser.on("--only PHASE", "Run only one setup phase") { |phase| options[:only] = phase.to_sym }
+      parser.on("--yes", "Apply the plan without confirmation") { options[:yes] = true }
+      parser.on("--only PHASE", "Run only homebrew or mappings") { |phase| options[:only] = phase.to_sym }
       parser.on("--skip-brew", "Skip the Homebrew phase") { options[:skip_brew] = true }
       parser.on("--skills-only", "Install skills only") { options[:skills_only] = true }
       parser.on("-h", "--help", "Show this help") { @help = true }

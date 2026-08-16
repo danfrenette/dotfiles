@@ -286,10 +286,214 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(skill_target("tdd"))
   end
 
+  def test_homebrew_dry_run_reports_exact_plan_without_execution
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+    prompt = TestPrompt.new { raise "dry run prompted" }
+
+    status = build_installer(
+      options: {only: :homebrew, dry_run: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner, prompt: prompt}
+    ).install
+
+    assert_equal 0, status
+    assert_equal [
+      {type: :available, meta: {path: "/opt/homebrew/bin/brew"}},
+      {
+        type: :bundle,
+        meta: {
+          command: ["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"],
+          brewfile: brewfile,
+          effect: "install or update declared packages"
+        }
+      }
+    ], @reporter.actions
+    assert_empty command_runner.calls
+    assert @reporter.dry_completion_reported
+  end
+
+  def test_homebrew_missing_executable_fails_before_prompt_or_execution
+    prompt = TestPrompt.new { raise "missing Homebrew prompted" }
+    command_runner = TestCommandRunner.new
+
+    status = build_installer(
+      options: {only: :homebrew},
+      config: {brewfile_path: create_file("dotfiles/Brewfile")},
+      runtime: {command_runner: command_runner, prompt: prompt}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "Homebrew not found; run ./bootstrap.sh first"
+    assert_empty command_runner.calls
+  end
+
+  def test_homebrew_rejects_missing_directory_and_unreadable_brewfiles
+    missing = tmp_path("dotfiles/missing-Brewfile")
+    directory = create_dir("dotfiles/Brewfile-directory")
+    unreadable = create_file("dotfiles/unreadable-Brewfile")
+    FileUtils.chmod(0o000, unreadable)
+
+    expected_errors = {
+      missing => "Brewfile not found: #{missing}",
+      directory => "Brewfile is not a regular file: #{directory}",
+      unreadable => "Brewfile is not readable: #{unreadable}"
+    }
+
+    expected_errors.each do |brewfile, error|
+      @reporter.clear
+      command_runner = TestCommandRunner.new(executables: {"brew" => "/usr/local/bin/brew"})
+
+      status = build_installer(
+        options: {only: :homebrew, yes: true},
+        config: {brewfile_path: brewfile},
+        runtime: {command_runner: command_runner}
+      ).install
+
+      assert_equal 1, status
+      assert_includes @reporter.warnings, error
+      assert_empty command_runner.calls
+    end
+  ensure
+    FileUtils.chmod(0o600, unreadable) if unreadable && File.exist?(unreadable)
+  end
+
+  def test_declined_homebrew_confirmation_executes_nothing
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+
+    status = build_installer(
+      options: {only: :homebrew},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner, prompt: TestPrompt.new(false)}
+    ).install
+
+    assert_equal 0, status
+    assert_empty command_runner.calls
+    refute @reporter.completion_reported
+  end
+
+  def test_confirmed_homebrew_runs_exact_planned_command
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+
+    status = build_installer(
+      options: {only: :homebrew},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner, prompt: TestPrompt.new(true)}
+    ).install
+
+    assert_equal 0, status
+    assert_equal [["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert @reporter.completion_reported
+  end
+
+  def test_homebrew_yes_bypasses_confirmation
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/usr/local/bin/brew"})
+    prompt = TestPrompt.new { raise "--yes prompted" }
+
+    status = build_installer(
+      options: {only: :homebrew, yes: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner, prompt: prompt}
+    ).install
+
+    assert_equal 0, status
+    assert_equal [["/usr/local/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+  end
+
+  def test_homebrew_nonzero_and_failed_start_are_blocking
+    {false => "brew bundle exited with a nonzero status", nil => "brew bundle could not start"}.each do |result, error|
+      @reporter.clear
+      brewfile = create_file("dotfiles/Brewfile")
+      command_runner = TestCommandRunner.new(
+        result: result,
+        executables: {"brew" => "/opt/homebrew/bin/brew"}
+      )
+
+      status = build_installer(
+        options: {only: :homebrew, yes: true},
+        config: {brewfile_path: brewfile},
+        runtime: {command_runner: command_runner}
+      ).install
+
+      assert_equal 1, status
+      assert_includes @reporter.warnings, error
+      refute @reporter.completion_reported
+    end
+  end
+
+  def test_homebrew_only_excludes_mappings_skills_and_neovim
+    source, target = create_mapping("gitconfig")
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+    create_skill("engineering/tdd")
+
+    status = build_installer(
+      options: {only: :homebrew, yes: true},
+      config: {
+        mappings: [mapping(source, target)],
+        brewfile_path: brewfile,
+        local_skills: ["engineering/tdd"]
+      },
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 0, status
+    assert_equal ["Installing Homebrew packages"], @reporter.phases
+    refute File.exist?(target)
+    refute File.exist?(skill_target("tdd"))
+  end
+
+  def test_default_mapping_preflight_failure_prevents_homebrew_execution
+    brewfile = create_file("dotfiles/Brewfile")
+    missing_source = tmp_path("dotfiles/missing")
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+
+    status = build_installer(
+      options: {skip_brew: false},
+      config: {
+        mappings: [mapping(missing_source, tmp_path("home/.missing"))],
+        brewfile_path: brewfile
+      },
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_empty command_runner.calls
+  end
+
+  def test_default_homebrew_failure_stops_before_later_phases
+    source, target = create_mapping("gitconfig")
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(
+      result: false,
+      executables: {"brew" => "/opt/homebrew/bin/brew"}
+    )
+    create_skill("engineering/tdd")
+
+    status = build_installer(
+      options: {skip_brew: false},
+      config: {
+        mappings: [mapping(source, target)],
+        brewfile_path: brewfile,
+        local_skills: ["engineering/tdd"]
+      },
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    refute File.exist?(target)
+    refute File.exist?(skill_target("tdd"))
+    refute_includes @reporter.phases, "Installing skills"
+    refute_includes @reporter.phases, "Post-install"
+  end
+
   def test_default_setup_runs_full_setup_without_mapping_confirmation
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
-    command_runner = TestCommandRunner.new
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default setup prompted" }
     create_skill("engineering/tdd")
 
@@ -304,7 +508,7 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [["brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert_equal [["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
     assert_symlink target, to: source
     assert_symlink skill_target("tdd")
   end
@@ -313,7 +517,7 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     nvim_init = tmp_path("home/.config/nvim/init.lua")
-    command_runner = TestCommandRunner.new
+    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default dry run prompted" }
     create_skill("engineering/tdd")
 
