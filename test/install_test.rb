@@ -16,7 +16,6 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--only"
     assert_includes stdout, "--skip-brew"
     assert_includes stdout, "--skills-only"
-    assert_includes stdout, "--update-skills"
     assert_empty stderr
   end
 
@@ -79,6 +78,19 @@ class InstallTest < DotfilesTestCase
     assert_equal 64, status.exitstatus
     assert_empty stdout
     assert_includes stderr, "Unexpected arguments: unexpected"
+  end
+
+  def test_standalone_skills_installer_dry_runs
+    home = create_dir("home")
+    executable = File.expand_path("../bin/install-skills", __dir__)
+
+    stdout, stderr, status = Bundler.with_unbundled_env do
+      Open3.capture3({"HOME" => home}, RbConfig.ruby, executable, "--dry-run")
+    end
+
+    assert status.success?, stderr
+    assert_includes stdout, "commit-writer"
+    refute File.exist?(File.join(home, ".config", "opencode", "skill", "commit-writer"))
   end
 
   private

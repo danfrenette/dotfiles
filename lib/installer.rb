@@ -3,7 +3,6 @@
 require_relative "linker"
 require_relative "config"
 require_relative "skill_installer"
-require_relative "remote_skills/sources"
 require_relative "setup_options"
 require_relative "setup_runtime"
 
@@ -67,7 +66,7 @@ class Installer
     guard_against_recursive_skills_destination
 
     reporter.report_phase("Installing skills")
-    skills = local_skills.merge(remote_skills)
+    skills = local_skills
 
     if skills.empty?
       reporter.report_warning("no skills found in #{config.skills_source_root}")
@@ -83,11 +82,6 @@ class Installer
       source = File.join(config.skills_source_root, path)
       [File.basename(path), source]
     end
-  end
-
-  def remote_skills
-    remote_sources = RemoteSkills::Sources.new(config: config)
-    remote_sources.sources(update: options.update_skills)
   end
 
   def guard_against_recursive_skills_destination

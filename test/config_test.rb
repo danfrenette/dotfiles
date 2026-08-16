@@ -113,14 +113,6 @@ class ConfigTest < DotfilesTestCase
     assert_equal @config.dotfiles_path("skills.yml"), @config.skills_manifest_path
   end
 
-  def test_skills_lock_path_points_to_repo_lockfile
-    assert_equal @config.dotfiles_path("skills.lock"), @config.skills_lock_path
-  end
-
-  def test_skills_cache_dir_points_to_user_cache
-    assert_equal @config.home_path(".cache", "dotfiles-skills"), @config.skills_cache_dir
-  end
-
   def test_local_skills_returns_explicit_manifest_paths
     assert_includes @config.local_skills, "engineering/commit-writer"
     assert_includes @config.local_skills, "engineering/reviewer"

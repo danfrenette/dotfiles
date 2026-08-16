@@ -42,14 +42,6 @@ class Config
     dotfiles_path("skills.yml")
   end
 
-  def skills_lock_path
-    dotfiles_path("skills.lock")
-  end
-
-  def skills_cache_dir
-    home_path(".cache", "dotfiles-skills")
-  end
-
   def local_skills
     Array(skills_data["local_skills"])
   end

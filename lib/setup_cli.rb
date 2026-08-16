@@ -41,7 +41,6 @@ class SetupCLI
       parser.on("--only PHASE", "Run only one setup phase") { |phase| options[:only] = phase.to_sym }
       parser.on("--skip-brew", "Skip the Homebrew phase") { options[:skip_brew] = true }
       parser.on("--skills-only", "Install skills only") { options[:skills_only] = true }
-      parser.on("--update-skills", "Update remote skills") { options[:update_skills] = true }
       parser.on("-h", "--help", "Show this help") { @help = true }
     end
   end

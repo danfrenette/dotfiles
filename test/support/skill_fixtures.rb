@@ -7,7 +7,7 @@ module SkillFixtures
     skill_dir
   end
 
-  def write_skills_manifest(path, local_skills: [], remote_skills: [])
-    create_file(path, YAML.dump("local_skills" => local_skills, "remote_skills" => remote_skills))
+  def write_skills_manifest(path, local_skills: [])
+    create_file(path, YAML.dump("local_skills" => local_skills))
   end
 end

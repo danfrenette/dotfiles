@@ -11,8 +11,6 @@ class InstallerTest < DotfilesTestCase
     @skills_root = tmp_path("skills")
     @skills_target = tmp_path("opencode/skill")
     @skills_manifest = tmp_path("skills.yml")
-    @skills_lock = tmp_path("skills.lock")
-    @skills_cache = tmp_path("cache")
   end
 
   def test_full_install_runs_expected_phases_and_completion
@@ -246,8 +244,6 @@ class InstallerTest < DotfilesTestCase
       opencode_skills_target: @skills_target,
       local_skills: local_skills,
       skills_manifest_path: @skills_manifest,
-      skills_lock_path: @skills_lock,
-      skills_cache_dir: @skills_cache,
       mappings: config.fetch(:mappings, {}),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile")
     )

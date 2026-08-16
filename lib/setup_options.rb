@@ -5,7 +5,6 @@ class SetupOptions
   DEFAULTS = {
     skip_brew: false,
     dry_run: false,
-    update_skills: false,
     skills_only: false,
     yes: false,
     only: nil
@@ -13,7 +12,6 @@ class SetupOptions
 
   attr_reader :skip_brew,
     :dry_run,
-    :update_skills,
     :skills_only,
     :yes,
     :only
@@ -26,7 +24,6 @@ class SetupOptions
 
     @skip_brew = options.fetch(:skip_brew)
     @dry_run = options.fetch(:dry_run)
-    @update_skills = options.fetch(:update_skills)
     @skills_only = options.fetch(:skills_only)
     @yes = options.fetch(:yes)
     @only = options.fetch(:only)
