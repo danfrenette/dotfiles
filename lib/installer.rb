@@ -3,6 +3,7 @@
 require_relative "linker"
 require_relative "config"
 require_relative "phases/homebrew"
+require_relative "phases/opencode2"
 require_relative "skill_installer"
 require_relative "setup_options"
 require_relative "setup_runtime"
@@ -18,21 +19,29 @@ class Installer
       command_runner: runtime.command_runner,
       reporter: runtime.reporter
     )
+    @opencode2 = Phases::OpenCode2.new(
+      global_dir: config.opencode2_global_dir,
+      bin_dir: config.user_bin_dir,
+      checkout: config.opencode_fork_checkout,
+      command_runner: runtime.command_runner,
+      reporter: runtime.reporter
+    )
   end
 
   def install
     return install_skills_only if options.skills_only
     return install_homebrew if options.only == :homebrew
     return install_mappings if options.only == :mappings
+    return install_opencode2 if options.only == :opencode2
 
     install_full_setup
-  rescue ArgumentError, Phases::Homebrew::Error, SystemCallError => error
+  rescue ArgumentError, Phases::Homebrew::Error, Phases::OpenCode2::Error, SystemCallError => error
     report_failure(error)
   end
 
   private
 
-  attr_reader :options, :config, :runtime, :linker, :homebrew
+  attr_reader :options, :config, :runtime, :linker, :homebrew, :opencode2
 
   def reporter
     runtime.reporter
@@ -62,17 +71,42 @@ class Installer
     0
   end
 
+  def install_opencode2
+    plan = opencode2.plan
+    return complete_dry_run if options.dry_run
+    return 0 unless options.yes || runtime.prompt.confirm?
+
+    opencode2.apply(plan)
+    reporter.report_completion
+    0
+  end
+
   def install_full_setup
     homebrew_plan = homebrew.plan unless options.skip_brew
+    opencode2_plan = begin
+      opencode2.plan
+    rescue Phases::OpenCode2::Error, SystemCallError => error
+      reporter.report_warning(error.message)
+      nil
+    end
     mapping_plan = plan_mappings
+    opencode2_failed = opencode2_plan.nil?
 
     unless options.dry_run
       homebrew.apply(homebrew_plan) if homebrew_plan
+      if opencode2_plan
+        begin
+          opencode2.apply(opencode2_plan)
+        rescue Phases::OpenCode2::Error => error
+          reporter.report_warning(error.message)
+          opencode2_failed = true
+        end
+      end
       linker.apply(mapping_plan)
     end
 
     post_install(mapping_plan)
-    0
+    opencode2_failed ? 1 : 0
   end
 
   def complete_dry_run

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class SetupOptions
-  SUPPORTED_PHASES = [:homebrew, :mappings].freeze
+  SUPPORTED_PHASES = [:homebrew, :mappings, :opencode2].freeze
   DEFAULTS = {
     skip_brew: false,
     dry_run: false,

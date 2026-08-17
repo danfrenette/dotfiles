@@ -70,6 +70,22 @@ class BootstrapTest < DotfilesTestCase
     refute File.readlines(log, chomp: true).any? { |line| line.match?(/brew (install|upgrade)|rbenv install/) }
   end
 
+  def test_accepts_and_forwards_opencode2_dry_run_when_prerequisites_exist
+    bin = create_dir("bin")
+    log = tmp_path("commands.log")
+    create_fake_brew(bin)
+    create_fake_rbenv(bin)
+
+    _stdout, stderr, status = run_bootstrap(
+      base_environment(bin, log).merge("INSTALLED_RUBY" => "4.0.3"),
+      "--only", "opencode2", "--dry-run"
+    )
+
+    assert status.success?, stderr
+    assert_includes File.readlines(log, chomp: true),
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only opencode2 --dry-run"
+  end
+
   def test_missing_homebrew_runs_official_installer_in_normal_mode
     bin = create_dir("bin")
     log = tmp_path("commands.log")

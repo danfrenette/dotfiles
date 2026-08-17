@@ -45,6 +45,18 @@ class Config
     home_path(".config", "opencode", "skill")
   end
 
+  def opencode2_global_dir
+    home_path(".local", "share", "pnpm", "global")
+  end
+
+  def user_bin_dir
+    home_path(".local", "bin")
+  end
+
+  def opencode_fork_checkout
+    home_path("code", "opencode")
+  end
+
   def skills_manifest_path
     dotfiles_path("skills.yml")
   end

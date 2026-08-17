@@ -20,7 +20,15 @@ module Reporters
       unchanged: "[OK]",
       unchanged_copy: "[OK]",
       available: "[OK]",
-      bundle: "[BREW]"
+      package_manager: "[OK]",
+      bundle: "[BREW]",
+      package: "[PKG]",
+      destination: "[DEST]",
+      install: "[RUN]",
+      verify: "[CHECK]",
+      source: "[SOURCE]",
+      dependencies: "[DEPS]",
+      workflow: "[READY]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -101,7 +109,19 @@ module Reporters
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
       when :available
         "Homebrew executable: #{meta[:path]}"
+      when :package_manager
+        "#{meta[:name]} executable: #{meta[:path]}"
       when :bundle
+        "#{meta[:command].join(" ")} (#{meta[:effect]})"
+      when :package
+        "#{meta[:specification]} (prerelease channel: #{meta[:channel]})"
+      when :destination
+        "#{meta[:executable]} (packages: #{meta[:package_directory]}, binaries: #{meta[:binary_directory]})"
+      when :install, :verify
+        meta[:command].join(" ")
+      when :source, :dependencies
+        meta[:command].join(" ")
+      when :workflow
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 class CommandRunner
   def find_executable(name, candidates: [])
     directories = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR, -1)
@@ -10,7 +12,16 @@ class CommandRunner
     (search_paths + candidates).find { |path| File.file?(path) && File.executable?(path) }&.then { |path| File.expand_path(path) }
   end
 
-  def run(*command, **options)
-    Kernel.system(*command, **options)
+  def run(*command, env: {}, **options)
+    return Kernel.system(*command, **options) if env.empty?
+
+    Kernel.system(env, *command, **options)
+  end
+
+  def capture(*command)
+    output, status = Open3.capture2(*command)
+    status.success? ? output : nil
+  rescue SystemCallError
+    nil
   end
 end

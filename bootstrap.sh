@@ -13,7 +13,7 @@ print_usage() {
 Usage: install.rb [options]
         --dry-run                    Print the plan without applying it
         --yes                        Apply the plan without confirmation
-        --only PHASE                 Run only homebrew or mappings
+        --only PHASE                 Run only homebrew, opencode2, or mappings
         --skip-brew                  Skip the Homebrew phase
         --skills-only                Install skills only
     -h, --help                       Show this help
@@ -67,7 +67,7 @@ validate_arguments() {
     print_usage
     exit 0
   fi
-  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "mappings" ]]; then
+  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "opencode2" && "$ONLY_PHASE" != "mappings" ]]; then
     usage_error "Unsupported phase: $ONLY_PHASE"
   fi
   if [[ -n "$ONLY_PHASE" && "$SKILLS_ONLY" == true ]]; then

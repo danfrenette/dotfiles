@@ -17,7 +17,7 @@ class InstallerTest < DotfilesTestCase
     create_skill("engineering/tdd")
     build_installer(config: {local_skills: ["engineering/tdd"]}).install
 
-    assert_equal ["Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
+    assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
     assert @reporter.completion_reported
     assert_reported_action @reporter, :linked, name: "tdd"
   end
@@ -440,6 +440,253 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(skill_target("tdd"))
   end
 
+  def test_opencode2_dry_run_reports_exact_plan_without_execution_or_mutation
+    home = tmp_path("home")
+    global_dir = File.join(home, ".local", "share", "pnpm", "global")
+    bin_dir = File.join(home, ".local", "bin")
+    executable = File.join(bin_dir, "opencode2")
+    pnpm = "/opt/homebrew/bin/pnpm"
+    git = "/usr/bin/git"
+    bun = "/opt/homebrew/bin/bun"
+    checkout = File.join(home, "code", "opencode")
+    command_runner = TestCommandRunner.new(executables: {"pnpm" => pnpm, "git" => git, "bun" => bun})
+    prompt = TestPrompt.new { raise "dry run prompted" }
+
+    status = build_installer(
+      options: {only: :opencode2, dry_run: true},
+      config: {opencode2_global_dir: global_dir, user_bin_dir: bin_dir, opencode_fork_checkout: checkout},
+      runtime: {command_runner: command_runner, prompt: prompt}
+    ).install
+
+    assert_equal 0, status
+    package = @reporter.actions.find { |action| action[:type] == :package }
+    destination = @reporter.actions.find { |action| action[:type] == :destination }
+    install = @reporter.actions.find { |action| action[:type] == :install }
+    verification = @reporter.actions.find { |action| action[:type] == :verify }
+    source = @reporter.actions.find { |action| action[:type] == :source }
+    dependencies = @reporter.actions.find { |action| action[:type] == :dependencies }
+    workflow = @reporter.actions.find { |action| action[:type] == :workflow }
+    assert_equal "@opencode-ai/cli@next", package[:meta][:specification]
+    assert_equal "next", package[:meta][:channel]
+    assert_equal global_dir, destination[:meta][:package_directory]
+    assert_equal bin_dir, destination[:meta][:binary_directory]
+    assert_equal executable, destination[:meta][:executable]
+    assert_equal [
+      pnpm, "add", "--global", "--global-dir=#{global_dir}",
+      "--global-bin-dir=#{bin_dir}", "@opencode-ai/cli@next"
+    ], install[:meta][:command]
+    assert_equal [executable, "--version"], verification[:meta][:command]
+    assert_equal [
+      git, "clone", "--branch", "dan-dev", "--single-branch",
+      "https://github.com/danfrenette/opencode.git", checkout
+    ], source[:meta][:command]
+    assert_equal [bun, "install", "--frozen-lockfile", "--cwd", checkout], dependencies[:meta][:command]
+    assert_equal [bun, "run", "--cwd", checkout, "dev:web:live"], workflow[:meta][:command]
+    assert_empty command_runner.calls
+    refute File.exist?(global_dir)
+    refute File.exist?(bin_dir)
+    assert @reporter.dry_completion_reported
+  end
+
+  def test_confirmed_opencode2_creates_destinations_installs_and_verifies_exact_executable
+    global_dir = tmp_path("home/.local/share/pnpm/global")
+    bin_dir = tmp_path("home/.local/bin")
+    executable = File.join(bin_dir, "opencode2")
+    pnpm = "/opt/homebrew/bin/pnpm"
+    git = "/usr/bin/git"
+    bun = "/opt/homebrew/bin/bun"
+    checkout = tmp_path("home/code/opencode")
+    command_runner = TestCommandRunner.new(
+      executables: {"pnpm" => pnpm, "git" => git, "bun" => bun},
+      on_run: lambda do |command, _options|
+        if command.first == pnpm
+          File.write(executable, "#!/bin/sh\n")
+          FileUtils.chmod("+x", executable)
+        elsif command.first == git
+          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
+          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
+          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
+        end
+      end
+    )
+
+    status = build_installer(
+      options: {only: :opencode2},
+      config: {
+        opencode2_global_dir: global_dir,
+        user_bin_dir: bin_dir,
+        opencode_fork_checkout: checkout
+      },
+      runtime: {command_runner: command_runner, prompt: TestPrompt.new(true)}
+    ).install
+
+    assert_equal 0, status
+    assert File.directory?(global_dir)
+    assert File.directory?(bin_dir)
+    assert_equal [
+      [
+        pnpm, "add", "--global", "--global-dir=#{global_dir}",
+        "--global-bin-dir=#{bin_dir}", "@opencode-ai/cli@next",
+        {env: {"PATH" => "#{bin_dir}#{File::PATH_SEPARATOR}#{ENV.fetch("PATH", "")}"}}
+      ],
+      [executable, "--version"],
+      [
+        git, "clone", "--branch", "dan-dev", "--single-branch",
+        "https://github.com/danfrenette/opencode.git", checkout
+      ],
+      [bun, "install", "--frozen-lockfile", "--cwd", checkout]
+    ], command_runner.calls
+    assert @reporter.completion_reported
+  end
+
+  def test_opencode2_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
+    source, target = create_mapping("gitconfig")
+    command_runner = TestCommandRunner.new(
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+    )
+
+    status = build_installer(
+      options: {yes: true},
+      config: {mappings: [mapping(source, target)]},
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_symlink target, to: source
+    assert_includes @reporter.phases, "Post-install"
+    assert_includes @reporter.warnings,
+      "OpenCode2 executable was not installed at #{tmp_path("home/.local/bin/opencode2")}"
+  end
+
+  def test_opencode2_preflight_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
+    source, target = create_mapping("gitconfig")
+    runner = TestCommandRunner.new
+
+    status = build_installer(
+      options: {yes: true},
+      config: {mappings: [mapping(source, target)]},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_symlink target, to: source
+    assert_includes @reporter.phases, "Post-install"
+    assert_includes @reporter.warnings, "pnpm not found; install pnpm before running the OpenCode2 phase"
+    assert_empty runner.calls
+  end
+
+  def test_opencode2_missing_prerequisites_and_old_bun_fail_before_prompt_or_mutation
+    cases = [
+      [{}, {}, "pnpm not found"],
+      [{"pnpm" => "/fake/pnpm"}, {}, "Git not found"],
+      [{"pnpm" => "/fake/pnpm", "git" => "/fake/git"}, {}, "Bun not found"],
+      [
+        {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
+        {"bun" => "1.2.22\n"},
+        "Bun 1.3 or newer is required; found 1.2.22"
+      ]
+    ]
+
+    cases.each do |executables, captures, expected|
+      @reporter.clear
+      runner = TestCommandRunner.new(executables: executables, captures: captures)
+      prompt = TestPrompt.new { raise "failed preflight prompted" }
+
+      status = build_installer(
+        options: {only: :opencode2},
+        runtime: {command_runner: runner, prompt: prompt}
+      ).install
+
+      assert_equal 1, status
+      assert @reporter.warnings.any? { |warning| warning.include?(expected) }
+      assert_empty runner.calls
+      refute File.exist?(tmp_path("home/.local"))
+    end
+  end
+
+  def test_declined_opencode2_confirmation_mutates_and_executes_nothing
+    runner = TestCommandRunner.new(
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+    )
+
+    status = build_installer(
+      options: {only: :opencode2},
+      runtime: {command_runner: runner, prompt: TestPrompt.new(false)}
+    ).install
+
+    assert_equal 0, status
+    assert_empty runner.calls
+    refute File.exist?(tmp_path("home/.local"))
+    refute File.exist?(tmp_path("home/code"))
+  end
+
+  def test_opencode2_package_failure_skips_exact_verification_and_fork_checkout
+    runner = TestCommandRunner.new(
+      result: false,
+      executables: {
+        "pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "opencode2" => "/unrelated/opencode2"
+      }
+    )
+
+    status = build_installer(
+      options: {only: :opencode2, yes: true},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_equal 1, runner.calls.length
+    assert_includes @reporter.warnings, "OpenCode2 installation exited with a nonzero status"
+    refute File.exist?(tmp_path("home/code/opencode"))
+  end
+
+  def test_opencode2_requires_planned_executable_even_when_unrelated_one_is_available
+    runner = TestCommandRunner.new(
+      executables: {
+        "pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "opencode2" => "/unrelated/opencode2"
+      }
+    )
+
+    status = build_installer(
+      options: {only: :opencode2, yes: true},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_equal 1, runner.calls.length
+    assert_includes @reporter.warnings,
+      "OpenCode2 executable was not installed at #{tmp_path("home/.local/bin/opencode2")}"
+  end
+
+  def test_existing_dan_dev_checkout_is_updated_by_fast_forward_from_explicit_fork
+    checkout = tmp_path("home/code/opencode")
+    create_file("home/code/opencode/.git/HEAD", "ref: refs/heads/dan-dev\n")
+    create_file("home/code/opencode/package.json", '{"scripts":{"dev:web:live":"test"}}')
+    create_file("home/code/opencode/packages/app/script/dev-web-live.ts", "")
+    executable = tmp_path("home/.local/bin/opencode2")
+    runner = TestCommandRunner.new(
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
+      on_run: lambda do |command, _options|
+        next unless command.first == "/fake/pnpm"
+
+        FileUtils.mkdir_p(File.dirname(executable))
+        File.write(executable, "#!/bin/sh\n")
+        FileUtils.chmod("+x", executable)
+      end
+    )
+
+    status = build_installer(
+      options: {only: :opencode2, yes: true},
+      config: {opencode_fork_checkout: checkout},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 0, status
+    assert_includes runner.calls, [
+      "/fake/git", "-C", checkout, "pull", "--ff-only",
+      "https://github.com/danfrenette/opencode.git", "dan-dev"
+    ]
+  end
+
   def test_default_mapping_preflight_failure_prevents_homebrew_execution
     brewfile = create_file("dotfiles/Brewfile")
     missing_source = tmp_path("dotfiles/missing")
@@ -461,10 +708,7 @@ class InstallerTest < DotfilesTestCase
   def test_default_homebrew_failure_stops_before_later_phases
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
-    command_runner = TestCommandRunner.new(
-      result: false,
-      executables: {"brew" => "/opt/homebrew/bin/brew"}
-    )
+    command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"}, result: false)
     create_skill("engineering/tdd")
 
     status = build_installer(
@@ -487,7 +731,7 @@ class InstallerTest < DotfilesTestCase
   def test_default_setup_runs_full_setup_without_mapping_confirmation
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
-    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+    command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default setup prompted" }
     create_skill("engineering/tdd")
 
@@ -502,7 +746,7 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert_includes command_runner.calls, ["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]
     assert_symlink target, to: source
     assert_symlink skill_target("tdd")
   end
@@ -511,7 +755,7 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     nvim_init = tmp_path("home/.config/nvim/init.lua")
-    command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
+    command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default dry run prompted" }
     create_skill("engineering/tdd")
 
@@ -527,7 +771,9 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal ["Installing Homebrew packages", "Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
+    assert_equal [
+      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing skills", "Post-install"
+    ], @reporter.phases
     assert_empty command_runner.calls
     refute File.exist?(target)
     refute File.exist?(skill_target("tdd"))
@@ -598,13 +844,42 @@ class InstallerTest < DotfilesTestCase
       skills_manifest_path: @skills_manifest,
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
-      nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua")
+      nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua"),
+      opencode2_global_dir: config.fetch(:opencode2_global_dir, tmp_path("home/.local/share/pnpm/global")),
+      user_bin_dir: config.fetch(:user_bin_dir, tmp_path("home/.local/bin")),
+      opencode_fork_checkout: config.fetch(:opencode_fork_checkout, tmp_path("home/code/opencode"))
     )
+
+    runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only] || options[:skills_only]
 
     Installer.new(
       options: SetupOptions.new(skip_brew: true, **options),
       config: setup_config,
       runtime: SetupRuntime.new(reporter: @reporter, **runtime)
+    )
+  end
+
+  def successful_full_command_runner(executables = {}, result: true)
+    pnpm = "/fake/pnpm"
+    git = "/fake/git"
+    bun = "/fake/bun"
+    bin_dir = tmp_path("home/.local/bin")
+    checkout = tmp_path("home/code/opencode")
+
+    TestCommandRunner.new(
+      result: result,
+      executables: {"pnpm" => pnpm, "git" => git, "bun" => bun}.merge(executables),
+      on_run: lambda do |command, _options|
+        if command.first == pnpm
+          FileUtils.mkdir_p(bin_dir)
+          File.write(File.join(bin_dir, "opencode2"), "#!/bin/sh\n")
+          FileUtils.chmod("+x", File.join(bin_dir, "opencode2"))
+        elsif command.first == git
+          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
+          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
+          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
+        end
+      end
     )
   end
 

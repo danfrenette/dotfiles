@@ -14,7 +14,7 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--dry-run"
     assert_includes stdout, "--yes"
     assert_includes stdout, "--only"
-    assert_includes stdout, "homebrew or mappings"
+    assert_includes stdout, "homebrew, opencode2, or mappings"
     assert_includes stdout, "--skip-brew"
     assert_includes stdout, "--skills-only"
     assert_empty stderr
@@ -45,6 +45,27 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "#{brew} bundle --file=#{File.expand_path("../Brewfile", __dir__)}"
     assert_includes stdout, "Dry run complete!"
     assert_empty stderr
+  end
+
+  def test_opencode2_dry_run_prints_base_and_personal_fork_plan
+    bin = create_dir("bin")
+    create_executable(bin, "pnpm")
+    create_executable(bin, "git")
+    bun = File.join(bin, "bun")
+    File.write(bun, "#!/bin/sh\necho 1.3.14\n")
+    FileUtils.chmod("+x", bun)
+    home = create_dir("home")
+
+    stdout, stderr, status = run_install("--only", "opencode2", "--dry-run", home: home, path: bin)
+
+    assert status.success?, stderr
+    assert_includes stdout, "@opencode-ai/cli@next (prerelease channel: next)"
+    assert_includes stdout, File.join(home, ".local", "bin", "opencode2")
+    assert_includes stdout, "https://github.com/danfrenette/opencode.git"
+    assert_includes stdout, "dan-dev"
+    assert_includes stdout, "dev:web:live"
+    refute File.exist?(File.join(home, ".local"))
+    refute File.exist?(File.join(home, "code"))
   end
 
   def test_unsupported_phase_prints_help_and_exits_with_usage_error
