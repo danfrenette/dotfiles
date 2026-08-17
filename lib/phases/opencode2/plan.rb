@@ -2,7 +2,15 @@
 
 module Phases
   module OpenCode2
-    Plan = Data.define(:cli, :fork) do
+    class Plan
+      attr_reader :cli, :fork
+
+      def initialize(cli:, fork:)
+        @cli = cli
+        @fork = fork
+        freeze
+      end
+
       def items
         cli.items + fork.items + [
           {

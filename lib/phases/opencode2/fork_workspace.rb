@@ -3,6 +3,7 @@
 require "fileutils"
 require "json"
 require_relative "error"
+require_relative "fork_workspace/plan"
 
 module Phases
   module OpenCode2
@@ -17,34 +18,6 @@ module Phases
         "http://127.0.0.1:4096",
         "Start it separately and retry."
       ].freeze
-
-      Plan = Data.define(:git, :bun, :bun_version, :repository, :branch, :checkout, :checkout_exists) do
-        def source_command
-          if checkout_exists
-            [git, "-C", checkout, "pull", "--ff-only", repository, branch]
-          else
-            [git, "clone", "--branch", branch, "--single-branch", repository, checkout]
-          end
-        end
-
-        def dependency_command
-          [bun, "install", "--frozen-lockfile", "--cwd", checkout]
-        end
-
-        def launch_command
-          [bun, "run", "--cwd", checkout, "dev:web:live"]
-        end
-
-        def items
-          [
-            {
-              type: :source,
-              meta: {repository: repository, branch: branch, checkout: checkout, command: source_command}
-            },
-            {type: :dependencies, meta: {runtime: bun, version: bun_version, command: dependency_command}}
-          ]
-        end
-      end
 
       def initialize(checkout:, command_runner:)
         @checkout = checkout

@@ -2,7 +2,15 @@
 
 module Phases
   class Homebrew
-    Plan = Data.define(:executable, :brewfile) do
+    class Plan
+      attr_reader :executable, :brewfile
+
+      def initialize(executable:, brewfile:)
+        @executable = executable
+        @brewfile = brewfile
+        freeze
+      end
+
       def command
         [executable, "bundle", "--file=#{brewfile}"]
       end

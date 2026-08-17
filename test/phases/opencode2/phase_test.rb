@@ -45,4 +45,26 @@ class OpenCode2PhaseTest < DotfilesTestCase
     ], reporter.action_types
     assert_equal [pnpm, executable, git, bun], runner.calls.map(&:first)
   end
+
+  def test_plan_is_an_immutable_aggregate_class
+    phase = Phases::OpenCode2::Phase.new(
+      global_dir: tmp_path("home/.local/share/pnpm/global"),
+      bin_dir: tmp_path("home/.local/bin"),
+      checkout: tmp_path("home/code/opencode"),
+      package_manager_candidates: ["/fake/pnpm"],
+      command_runner: TestCommandRunner.new(
+        executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+      ),
+      reporter: Reporters::TestReporter.new
+    )
+
+    plan = phase.plan
+
+    assert_instance_of Phases::OpenCode2::Plan, plan
+    assert_instance_of Phases::OpenCode2::CLIInstallation::Plan, plan.cli
+    assert_instance_of Phases::OpenCode2::ForkWorkspace::Plan, plan.fork
+    assert_predicate plan, :frozen?
+    assert_predicate plan.cli, :frozen?
+    assert_predicate plan.fork, :frozen?
+  end
 end

@@ -2,54 +2,13 @@
 
 require "fileutils"
 require_relative "error"
+require_relative "cli_installation/plan"
 
 module Phases
   module OpenCode2
     class CLIInstallation
       PACKAGE_SPECIFICATION = "@opencode-ai/cli@next"
       CHANNEL = "next"
-
-      Plan = Data.define(
-        :package_manager,
-        :package_specification,
-        :channel,
-        :global_dir,
-        :bin_dir,
-        :executable,
-        :environment
-      ) do
-        def install_command
-          [
-            package_manager,
-            "add",
-            "--global",
-            "--global-dir=#{global_dir}",
-            "--global-bin-dir=#{bin_dir}",
-            package_specification
-          ]
-        end
-
-        def verification_command
-          [executable, "--version"]
-        end
-
-        def service_command
-          [executable, "service", "start"]
-        end
-
-        def items
-          [
-            {type: :package_manager, meta: {name: "pnpm", path: package_manager}},
-            {type: :package, meta: {specification: package_specification, channel: channel}},
-            {
-              type: :destination,
-              meta: {package_directory: global_dir, binary_directory: bin_dir, executable: executable}
-            },
-            {type: :install, meta: {command: install_command, environment: environment}},
-            {type: :verify, meta: {command: verification_command}}
-          ]
-        end
-      end
 
       def initialize(global_dir:, bin_dir:, package_manager_candidates:, command_runner:)
         @global_dir = global_dir
