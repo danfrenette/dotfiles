@@ -465,6 +465,7 @@ class InstallerTest < DotfilesTestCase
     verification = @reporter.actions.find { |action| action[:type] == :verify }
     source = @reporter.actions.find { |action| action[:type] == :source }
     dependencies = @reporter.actions.find { |action| action[:type] == :dependencies }
+    service = @reporter.actions.find { |action| action[:type] == :service }
     workflow = @reporter.actions.find { |action| action[:type] == :workflow }
     assert_equal "@opencode-ai/cli@next", package[:meta][:specification]
     assert_equal "next", package[:meta][:channel]
@@ -481,6 +482,7 @@ class InstallerTest < DotfilesTestCase
       "https://github.com/danfrenette/opencode.git", checkout
     ], source[:meta][:command]
     assert_equal [bun, "install", "--frozen-lockfile", "--cwd", checkout], dependencies[:meta][:command]
+    assert_equal [executable, "service", "start"], service[:meta][:command]
     assert_equal [bun, "run", "--cwd", checkout, "dev:web:live"], workflow[:meta][:command]
     assert_empty command_runner.calls
     refute File.exist?(global_dir)
@@ -503,9 +505,7 @@ class InstallerTest < DotfilesTestCase
           File.write(executable, "#!/bin/sh\n")
           FileUtils.chmod("+x", executable)
         elsif command.first == git
-          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
-          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
-          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
+          create_opencode_fork(checkout)
         end
       end
     )
@@ -659,9 +659,7 @@ class InstallerTest < DotfilesTestCase
 
   def test_existing_dan_dev_checkout_is_updated_by_fast_forward_from_explicit_fork
     checkout = tmp_path("home/code/opencode")
-    create_file("home/code/opencode/.git/HEAD", "ref: refs/heads/dan-dev\n")
-    create_file("home/code/opencode/package.json", '{"scripts":{"dev:web:live":"test"}}')
-    create_file("home/code/opencode/packages/app/script/dev-web-live.ts", "")
+    create_opencode_fork(checkout, git: true)
     executable = tmp_path("home/.local/bin/opencode2")
     runner = TestCommandRunner.new(
       executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
@@ -685,6 +683,57 @@ class InstallerTest < DotfilesTestCase
       "/fake/git", "-C", checkout, "pull", "--ff-only",
       "https://github.com/danfrenette/opencode.git", "dan-dev"
     ]
+  end
+
+  def test_existing_checkout_with_unwritable_git_metadata_fails_before_mutation
+    checkout = tmp_path("home/code/opencode")
+    create_opencode_fork(checkout, git: true)
+    objects = File.join(checkout, ".git", "objects")
+    FileUtils.chmod(0o500, objects)
+    runner = TestCommandRunner.new(
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+    )
+
+    status = build_installer(
+      options: {only: :opencode2, yes: true},
+      config: {opencode_fork_checkout: checkout},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "OpenCode fork Git metadata is not writable: #{objects}"
+    assert_empty runner.calls
+  ensure
+    FileUtils.chmod(0o700, objects) if objects && File.exist?(objects)
+  end
+
+  def test_fork_workflow_must_use_the_external_service_proxy_launcher
+    checkout = tmp_path("home/code/opencode")
+    executable = tmp_path("home/.local/bin/opencode2")
+    runner = TestCommandRunner.new(
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
+      on_run: lambda do |command, _options|
+        if command.first == "/fake/pnpm"
+          FileUtils.mkdir_p(File.dirname(executable))
+          File.write(executable, "#!/bin/sh\n")
+          FileUtils.chmod("+x", executable)
+        elsif command.first == "/fake/git"
+          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
+          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
+          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
+        end
+      end
+    )
+
+    status = build_installer(
+      options: {only: :opencode2, yes: true},
+      config: {opencode_fork_checkout: checkout},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "OpenCode fork dev:web:live does not use the expected proxy launcher"
+    refute runner.calls.any? { |call| call.first == "/fake/bun" }
   end
 
   def test_default_mapping_preflight_failure_prevents_homebrew_execution
@@ -847,7 +896,8 @@ class InstallerTest < DotfilesTestCase
       nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua"),
       opencode2_global_dir: config.fetch(:opencode2_global_dir, tmp_path("home/.local/share/pnpm/global")),
       user_bin_dir: config.fetch(:user_bin_dir, tmp_path("home/.local/bin")),
-      opencode_fork_checkout: config.fetch(:opencode_fork_checkout, tmp_path("home/code/opencode"))
+      opencode_fork_checkout: config.fetch(:opencode_fork_checkout, tmp_path("home/code/opencode")),
+      pnpm_candidates: config.fetch(:pnpm_candidates, ["/fake/pnpm"])
     )
 
     runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only] || options[:skills_only]
@@ -875,12 +925,29 @@ class InstallerTest < DotfilesTestCase
           File.write(File.join(bin_dir, "opencode2"), "#!/bin/sh\n")
           FileUtils.chmod("+x", File.join(bin_dir, "opencode2"))
         elsif command.first == git
-          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
-          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
-          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
+          create_opencode_fork(checkout)
         end
       end
     )
+  end
+
+  def create_opencode_fork(checkout, git: false)
+    FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
+    File.write(
+      File.join(checkout, "package.json"),
+      '{"scripts":{"dev:web:live":"bun run packages/app/script/dev-web-live.ts"}}'
+    )
+    File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), <<~TS)
+      const server = new URL(process.env.OPENCODE_DEV_SERVER_URL ?? "http://127.0.0.1:4096")
+      await fetch(new URL("/api/health", server))
+      const env = { OPENCODE_DEV_SERVER_URL: server.origin }
+      throw new Error("Start it separately and retry.")
+    TS
+    return unless git
+
+    FileUtils.mkdir_p(File.join(checkout, ".git", "objects"))
+    FileUtils.mkdir_p(File.join(checkout, ".git", "refs"))
+    File.write(File.join(checkout, ".git", "HEAD"), "ref: refs/heads/dan-dev\n")
   end
 
   def create_skill(path)

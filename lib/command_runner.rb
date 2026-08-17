@@ -3,9 +3,9 @@
 require "open3"
 
 class CommandRunner
-  def find_executable(name, candidates: [])
-    directories = ENV.fetch("PATH", "").split(File::PATH_SEPARATOR, -1)
-    directories = [""] if directories.empty?
+  def find_executable(name, candidates: [], search_path: true)
+    directories = search_path ? ENV.fetch("PATH", "").split(File::PATH_SEPARATOR, -1) : []
+    directories = [""] if search_path && directories.empty?
     search_paths = directories.map do |directory|
       directory.empty? ? name : File.join(directory, name)
     end

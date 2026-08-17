@@ -13,7 +13,7 @@ class TestCommandRunner
     @capture_calls = []
   end
 
-  def find_executable(name, candidates: [])
+  def find_executable(name, candidates: [], search_path: true)
     executables[name]
   end
 

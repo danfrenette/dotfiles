@@ -11,13 +11,21 @@ module Phases
     REPOSITORY = "https://github.com/danfrenette/opencode.git"
     BRANCH = "dan-dev"
     MINIMUM_BUN_VERSION = [1, 3].freeze
+    LIVE_WEB_SCRIPT = "bun run packages/app/script/dev-web-live.ts"
+    LIVE_WEB_MARKERS = [
+      "OPENCODE_DEV_SERVER_URL",
+      'new URL("/api/health", server)',
+      "http://127.0.0.1:4096",
+      "Start it separately and retry."
+    ].freeze
 
     class Error < StandardError; end
 
-    def initialize(global_dir:, bin_dir:, checkout:, command_runner:, reporter:)
+    def initialize(global_dir:, bin_dir:, checkout:, package_manager_candidates:, command_runner:, reporter:)
       @global_dir = global_dir
       @bin_dir = bin_dir
       @checkout = checkout
+      @package_manager_candidates = package_manager_candidates
       @command_runner = command_runner
       @reporter = reporter
     end
@@ -25,7 +33,11 @@ module Phases
     def plan
       reporter.report_phase("Installing OpenCode2")
 
-      package_manager = command_runner.find_executable("pnpm")
+      package_manager = command_runner.find_executable(
+        "pnpm",
+        candidates: package_manager_candidates,
+        search_path: false
+      )
       raise Error, "pnpm not found; install pnpm before running the OpenCode2 phase" unless package_manager
       git = command_runner.find_executable("git", candidates: ["/usr/bin/git"])
       raise Error, "Git not found; install Git before running the OpenCode2 phase" unless git
@@ -87,7 +99,7 @@ module Phases
 
     private
 
-    attr_reader :global_dir, :bin_dir, :checkout, :command_runner, :reporter
+    attr_reader :global_dir, :bin_dir, :checkout, :package_manager_candidates, :command_runner, :reporter
 
     def run_required(command, description)
       result = command_runner.run(*command)
@@ -110,11 +122,17 @@ module Phases
 
       raise Error, "OpenCode fork checkout is not a directory: #{checkout}" unless File.directory?(checkout)
 
-      head = File.join(checkout, ".git", "HEAD")
+      git_directory = File.join(checkout, ".git")
+      unless File.directory?(git_directory)
+        raise Error, "OpenCode fork Git metadata is not a directory: #{git_directory}"
+      end
+
+      head = File.join(git_directory, "HEAD")
       unless File.file?(head) && File.read(head).strip == "ref: refs/heads/#{BRANCH}"
         raise Error, "OpenCode fork checkout must be on #{BRANCH}: #{checkout}"
       end
       validate_destination(checkout)
+      validate_git_metadata(git_directory)
     end
 
     def validate_source_checkout(path)
@@ -125,8 +143,13 @@ module Phases
 
       package = JSON.parse(File.read(manifest))
       scripts = package.is_a?(Hash) ? package["scripts"] : nil
-      unless scripts.is_a?(Hash) && scripts.key?("dev:web:live")
-        raise Error, "OpenCode fork does not define dev:web:live"
+      unless scripts.is_a?(Hash) && scripts["dev:web:live"] == LIVE_WEB_SCRIPT
+        raise Error, "OpenCode fork dev:web:live does not use the expected proxy launcher"
+      end
+
+      launcher_source = File.read(launcher)
+      unless LIVE_WEB_MARKERS.all? { |marker| launcher_source.include?(marker) }
+        raise Error, "OpenCode fork live web launcher does not require the external installed service"
       end
     rescue JSON::ParserError
       raise Error, "OpenCode fork package manifest is invalid: #{manifest}"
@@ -141,6 +164,20 @@ module Phases
       end
       unless File.writable?(ancestor) && File.executable?(ancestor)
         raise Error, "OpenCode2 destination is not writable: #{path}"
+      end
+    end
+
+    def validate_git_metadata(git_directory)
+      [git_directory, File.join(git_directory, "objects"), File.join(git_directory, "refs")].each do |path|
+        unless File.directory?(path) && File.writable?(path) && File.executable?(path)
+          raise Error, "OpenCode fork Git metadata is not writable: #{path}"
+        end
+      end
+
+      ["HEAD", "index", "FETCH_HEAD"].each do |name|
+        path = File.join(git_directory, name)
+        next unless File.exist?(path)
+        raise Error, "OpenCode fork Git metadata is not writable: #{path}" unless File.file?(path) && File.writable?(path)
       end
     end
   end

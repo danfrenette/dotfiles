@@ -28,6 +28,7 @@ module Reporters
       verify: "[CHECK]",
       source: "[SOURCE]",
       dependencies: "[DEPS]",
+      service: "[SERVICE]",
       workflow: "[READY]"
     }.freeze
 
@@ -121,6 +122,8 @@ module Reporters
         meta[:command].join(" ")
       when :source, :dependencies
         meta[:command].join(" ")
+      when :service
+        "#{meta[:command].join(" ")} (#{meta[:effect]})"
       when :workflow
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
       else

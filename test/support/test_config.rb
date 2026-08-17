@@ -10,7 +10,8 @@ class TestConfig
     :brewfile_path,
     :opencode2_global_dir,
     :user_bin_dir,
-    :opencode_fork_checkout
+    :opencode_fork_checkout,
+    :pnpm_candidates
 
   def initialize(
     skills_source_root:,
@@ -22,7 +23,8 @@ class TestConfig
     brewfile_path: "/nonexistent/Brewfile",
     opencode2_global_dir: "/nonexistent/opencode2-global",
     user_bin_dir: "/nonexistent/bin",
-    opencode_fork_checkout: "/nonexistent/code/opencode"
+    opencode_fork_checkout: "/nonexistent/code/opencode",
+    pnpm_candidates: ["/fake/pnpm"]
   )
     @skills_source_root = skills_source_root
     @opencode_skills_target = opencode_skills_target
@@ -34,5 +36,6 @@ class TestConfig
     @opencode2_global_dir = opencode2_global_dir
     @user_bin_dir = user_bin_dir
     @opencode_fork_checkout = opencode_fork_checkout
+    @pnpm_candidates = pnpm_candidates
   end
 end

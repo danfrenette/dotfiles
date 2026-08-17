@@ -56,6 +56,46 @@ class CommandRunnerTest < DotfilesTestCase
     end
   end
 
+  def test_can_restrict_executable_search_to_durable_candidates
+    path_executable = create_executable("nvm/bin/pnpm")
+    candidate = create_executable("homebrew/bin/pnpm")
+
+    with_path(File.dirname(path_executable)) do
+      assert_equal candidate,
+        CommandRunner.new.find_executable("pnpm", candidates: [candidate], search_path: false)
+    end
+  end
+
+  def test_run_propagates_environment
+    output = tmp_path("environment.txt")
+    executable = create_file("bin/write-environment", <<~SH)
+      #!/bin/sh
+      printf %s "$COMMAND_RUNNER_VALUE" > "$1"
+    SH
+    FileUtils.chmod("+x", executable)
+
+    assert CommandRunner.new.run(executable, output, env: {"COMMAND_RUNNER_VALUE" => "propagated"})
+    assert_equal "propagated", File.read(output)
+  end
+
+  def test_capture_returns_successful_output
+    executable = create_file("bin/capture-success", "#!/bin/sh\nprintf 'captured output'")
+    FileUtils.chmod("+x", executable)
+
+    assert_equal "captured output", CommandRunner.new.capture(executable)
+  end
+
+  def test_capture_returns_nil_for_nonzero_exit
+    executable = create_file("bin/capture-failure", "#!/bin/sh\nexit 42\n")
+    FileUtils.chmod("+x", executable)
+
+    assert_nil CommandRunner.new.capture(executable)
+  end
+
+  def test_capture_returns_nil_when_command_cannot_start
+    assert_nil CommandRunner.new.capture(tmp_path("missing-command"))
+  end
+
   private
 
   def create_executable(path)

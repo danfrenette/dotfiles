@@ -57,6 +57,15 @@ class Config
     home_path("code", "opencode")
   end
 
+  def pnpm_candidates
+    [
+      "/opt/homebrew/bin/pnpm",
+      "/usr/local/bin/pnpm",
+      home_path("Library", "pnpm", "pnpm"),
+      home_path(".local", "share", "pnpm", "pnpm")
+    ]
+  end
+
   def skills_manifest_path
     dotfiles_path("skills.yml")
   end

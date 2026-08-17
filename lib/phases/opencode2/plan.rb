@@ -49,6 +49,10 @@ module Phases
         [bun, "run", "--cwd", checkout, "dev:web:live"]
       end
 
+      def service_command
+        [executable, "service", "start"]
+      end
+
       def items
         [
           {type: :package_manager, meta: {name: "pnpm", path: package_manager}},
@@ -64,6 +68,10 @@ module Phases
             meta: {repository: repository, branch: branch, checkout: checkout, command: source_command}
           },
           {type: :dependencies, meta: {runtime: bun, version: bun_version, command: dependency_command}},
+          {
+            type: :service,
+            meta: {command: service_command, effect: "start the installed service that owns shared session data"}
+          },
           {
             type: :workflow,
             meta: {

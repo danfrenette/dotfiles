@@ -23,6 +23,7 @@ class Installer
       global_dir: config.opencode2_global_dir,
       bin_dir: config.user_bin_dir,
       checkout: config.opencode_fork_checkout,
+      package_manager_candidates: config.pnpm_candidates,
       command_runner: runtime.command_runner,
       reporter: runtime.reporter
     )

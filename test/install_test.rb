@@ -63,6 +63,7 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, File.join(home, ".local", "bin", "opencode2")
     assert_includes stdout, "https://github.com/danfrenette/opencode.git"
     assert_includes stdout, "dan-dev"
+    assert_includes stdout, "#{File.join(home, ".local", "bin", "opencode2")} service start"
     assert_includes stdout, "dev:web:live"
     refute File.exist?(File.join(home, ".local"))
     refute File.exist?(File.join(home, "code"))
