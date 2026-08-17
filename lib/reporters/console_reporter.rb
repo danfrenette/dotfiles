@@ -29,7 +29,8 @@ module Reporters
       source: "[SOURCE]",
       dependencies: "[DEPS]",
       service: "[SERVICE]",
-      workflow: "[READY]"
+      workflow: "[READY]",
+      neovim: "[NVIM]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -126,6 +127,8 @@ module Reporters
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
       when :workflow
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
+      when :neovim
+        "#{meta[:command].join(" ")} (configuration: #{meta[:configuration_targets].join(", ")})"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
       end

@@ -57,6 +57,16 @@ class ConfigTest < DotfilesTestCase
     assert_equal @config.home_path(".config", "nvim", "init.lua"), init.target
   end
 
+  def test_nvim_configuration_targets_include_all_required_modules
+    assert_equal [
+      @config.home_path(".config", "nvim", "init.lua"),
+      @config.home_path(".config", "nvim", "lua", "options.lua"),
+      @config.home_path(".config", "nvim", "lua", "plugins.lua"),
+      @config.home_path(".config", "nvim", "lua", "keymaps.lua"),
+      @config.home_path(".config", "nvim", "lua", "autocmds.lua")
+    ], @config.nvim_configuration_targets
+  end
+
   def test_mappings_include_ghostty_config
     mappings = @config.mappings
 

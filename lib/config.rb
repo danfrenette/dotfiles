@@ -29,8 +29,10 @@ class Config
     File.join(@home_root, *parts)
   end
 
-  def nvim_init_target
-    home_path(".config", "nvim", "init.lua")
+  def nvim_configuration_targets
+    %w[init.lua lua/options.lua lua/plugins.lua lua/keymaps.lua lua/autocmds.lua].map do |path|
+      home_path(".config", "nvim", path)
+    end
   end
 
   def brewfile_path

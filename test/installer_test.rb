@@ -17,7 +17,7 @@ class InstallerTest < DotfilesTestCase
     create_skill("engineering/tdd")
     build_installer(config: {local_skills: ["engineering/tdd"]}).install
 
-    assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing skills", "Post-install"], @reporter.phases
+    assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing Neovim plugins", "Installing skills"], @reporter.phases
     assert @reporter.completion_reported
     assert_reported_action @reporter, :linked, name: "tdd"
   end
@@ -440,6 +440,48 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(skill_target("tdd"))
   end
 
+  def test_neovim_only_requires_all_currently_mapped_configuration_targets
+    targets = %w[init.lua lua/options.lua lua/plugins.lua lua/keymaps.lua lua/autocmds.lua].map do |path|
+      tmp_path("home/.config/nvim/#{path}")
+    end
+    mappings = targets.map.with_index do |target, index|
+      source = create_file("dotfiles/nvim/#{index}.lua")
+      FileUtils.mkdir_p(File.dirname(target))
+      File.symlink(source, target) unless index == targets.length - 1
+      mapping(source, target)
+    end
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
+
+    status = build_installer(
+      options: {only: :neovim, yes: true},
+      config: {mappings: mappings, nvim_configuration_targets: targets},
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "Neovim configuration is not available: #{targets.last}"
+    assert_empty runner.calls
+  end
+
+  def test_neovim_only_dry_run_and_confirmation_do_not_execute
+    target = tmp_path("home/.config/nvim/init.lua")
+    source = create_file("dotfiles/nvim/init.lua")
+    FileUtils.mkdir_p(File.dirname(target))
+    File.symlink(source, target)
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
+
+    status = build_installer(
+      options: {only: :neovim, dry_run: true},
+      config: {mappings: [mapping(source, target)], nvim_configuration_targets: [target]},
+      runtime: {command_runner: runner, prompt: TestPrompt.new { raise "dry run prompted" }}
+    ).install
+
+    assert_equal 0, status
+    assert @reporter.dry_completion_reported
+    assert_empty runner.calls
+    assert_equal ["Installing Neovim plugins"], @reporter.phases
+  end
+
   def test_opencode2_dry_run_skips_confirmation_execution_and_mutation
     home = tmp_path("home")
     global_dir = File.join(home, ".local", "share", "pnpm", "global")
@@ -505,7 +547,7 @@ class InstallerTest < DotfilesTestCase
   def test_opencode2_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
     source, target = create_mapping("gitconfig")
     command_runner = TestCommandRunner.new(
-      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "nvim" => "/fake/nvim"}
     )
 
     status = build_installer(
@@ -516,14 +558,14 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 1, status
     assert_symlink target, to: source
-    assert_includes @reporter.phases, "Post-install"
+    assert_includes @reporter.phases, "Installing Neovim plugins"
     assert_includes @reporter.warnings,
       "OpenCode2 executable was not installed at #{tmp_path("home/.local/bin/opencode2")}"
   end
 
   def test_opencode2_preflight_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
     source, target = create_mapping("gitconfig")
-    runner = TestCommandRunner.new
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
 
     status = build_installer(
       options: {yes: true},
@@ -533,14 +575,14 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 1, status
     assert_symlink target, to: source
-    assert_includes @reporter.phases, "Post-install"
+    assert_includes @reporter.phases, "Installing Neovim plugins"
     assert_includes @reporter.warnings, "pnpm not found; install pnpm before running the OpenCode2 phase"
-    assert_empty runner.calls
+    assert_equal [["/fake/nvim", "--headless", "+PlugInstall", "+qa"]], runner.calls
   end
 
   def test_declined_opencode2_confirmation_mutates_and_executes_nothing
     runner = TestCommandRunner.new(
-      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
+      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "nvim" => "/fake/nvim"}
     )
 
     status = build_installer(
@@ -592,7 +634,7 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(target)
     refute File.exist?(skill_target("tdd"))
     refute_includes @reporter.phases, "Installing skills"
-    refute_includes @reporter.phases, "Post-install"
+    assert_includes @reporter.phases, "Installing Neovim plugins"
   end
 
   def test_default_setup_runs_full_setup_without_mapping_confirmation
@@ -621,7 +663,6 @@ class InstallerTest < DotfilesTestCase
   def test_default_dry_run_reports_full_setup_without_execution
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
-    nvim_init = tmp_path("home/.config/nvim/init.lua")
     command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default dry run prompted" }
     create_skill("engineering/tdd")
@@ -631,7 +672,7 @@ class InstallerTest < DotfilesTestCase
       config: {
         mappings: [mapping(source, target)],
         brewfile_path: brewfile,
-        nvim_init_target: nvim_init,
+        nvim_configuration_targets: [],
         local_skills: ["engineering/tdd"]
       },
       runtime: {command_runner: command_runner, prompt: prompt}
@@ -639,30 +680,35 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 0, status
     assert_equal [
-      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing skills", "Post-install"
+      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing Neovim plugins", "Installing skills"
     ], @reporter.phases
     assert_empty command_runner.calls
     refute File.exist?(target)
     refute File.exist?(skill_target("tdd"))
-    refute @reporter.actions.any? { |action| action[:meta][:message] == "would run nvim --headless +PlugInstall +qa" }
+    assert @reporter.actions.any? { |action| action[:type] == :neovim }
     assert @reporter.dry_completion_reported
   end
 
-  def test_default_dry_run_reports_nvim_when_mapping_will_create_its_config
-    source = create_file("dotfiles/init.lua")
-    nvim_init = tmp_path("home/.config/nvim/init.lua")
+  def test_default_dry_run_reports_neovim_when_mappings_will_create_its_configuration
+    targets = %w[init.lua lua/options.lua lua/plugins.lua lua/keymaps.lua lua/autocmds.lua].map do |path|
+      tmp_path("home/.config/nvim/#{path}")
+    end
+    mappings = targets.map.with_index do |target, index|
+      mapping(create_file("dotfiles/nvim/#{index}.lua"), target)
+    end
 
     status = build_installer(
       options: {dry_run: true},
       config: {
-        mappings: [mapping(source, nvim_init)],
-        nvim_init_target: nvim_init
+        mappings: mappings,
+        nvim_configuration_targets: targets
       }
     ).install
 
     assert_equal 0, status
-    assert @reporter.actions.any? { |action| action[:meta][:message] == "would run nvim --headless +PlugInstall +qa" }
-    refute File.exist?(nvim_init)
+    neovim = @reporter.actions.find { |action| action[:type] == :neovim }
+    assert_equal ["/fake/nvim", "--headless", "+PlugInstall", "+qa"], neovim[:meta][:command]
+    refute File.exist?(targets.first)
   end
 
   def test_installs_explicit_local_skills_from_manifest
@@ -683,7 +729,7 @@ class InstallerTest < DotfilesTestCase
     assert_symlink skill_target("tdd")
     assert_includes @reporter.phases, "Installing skills"
     refute_includes @reporter.phases, "Linking dotfiles"
-    refute_includes @reporter.phases, "Post-install"
+    refute_includes @reporter.phases, "Installing Neovim plugins"
   end
 
   private
@@ -711,7 +757,7 @@ class InstallerTest < DotfilesTestCase
       skills_manifest_path: @skills_manifest,
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
-      nvim_init_target: config.fetch(:nvim_init_target, "/nonexistent/path/init.lua"),
+      nvim_configuration_targets: config.fetch(:nvim_configuration_targets, []),
       opencode2_global_dir: config.fetch(:opencode2_global_dir, tmp_path("home/.local/share/pnpm/global")),
       user_bin_dir: config.fetch(:user_bin_dir, tmp_path("home/.local/bin")),
       opencode_fork_checkout: config.fetch(:opencode_fork_checkout, tmp_path("home/code/opencode")),
@@ -736,7 +782,7 @@ class InstallerTest < DotfilesTestCase
 
     TestCommandRunner.new(
       result: result,
-      executables: {"pnpm" => pnpm, "git" => git, "bun" => bun}.merge(executables),
+      executables: {"pnpm" => pnpm, "git" => git, "bun" => bun, "nvim" => "/fake/nvim"}.merge(executables),
       on_run: lambda do |command, _options|
         if command.first == pnpm
           FileUtils.mkdir_p(bin_dir)

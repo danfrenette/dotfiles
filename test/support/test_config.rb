@@ -6,7 +6,7 @@ class TestConfig
     :local_skills,
     :skills_manifest_path,
     :mappings,
-    :nvim_init_target,
+    :nvim_configuration_targets,
     :brewfile_path,
     :opencode2_global_dir,
     :user_bin_dir,
@@ -19,7 +19,7 @@ class TestConfig
     skills_manifest_path:,
     local_skills: [],
     mappings: [],
-    nvim_init_target: "/nonexistent/path/init.lua",
+    nvim_configuration_targets: [],
     brewfile_path: "/nonexistent/Brewfile",
     opencode2_global_dir: "/nonexistent/opencode2-global",
     user_bin_dir: "/nonexistent/bin",
@@ -31,7 +31,7 @@ class TestConfig
     @local_skills = local_skills
     @skills_manifest_path = skills_manifest_path
     @mappings = mappings
-    @nvim_init_target = nvim_init_target
+    @nvim_configuration_targets = nvim_configuration_targets
     @brewfile_path = brewfile_path
     @opencode2_global_dir = opencode2_global_dir
     @user_bin_dir = user_bin_dir

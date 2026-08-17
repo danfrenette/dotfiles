@@ -3,6 +3,7 @@
 require_relative "linker"
 require_relative "config"
 require_relative "phases/homebrew"
+require_relative "phases/neovim"
 require_relative "phases/opencode2"
 require_relative "skill_installer"
 require_relative "setup_options"
@@ -27,22 +28,28 @@ class Installer
       command_runner: runtime.command_runner,
       reporter: runtime.reporter
     )
+    @neovim = Phases::Neovim.new(
+      configuration_targets: config.nvim_configuration_targets,
+      command_runner: runtime.command_runner,
+      reporter: runtime.reporter
+    )
   end
 
   def install
     return install_skills_only if options.skills_only
     return install_homebrew if options.only == :homebrew
     return install_mappings if options.only == :mappings
+    return install_neovim if options.only == :neovim
     return install_opencode2 if options.only == :opencode2
 
     install_full_setup
-  rescue ArgumentError, Phases::Homebrew::Error, Phases::OpenCode2::Error, SystemCallError => error
+  rescue ArgumentError, Phases::Homebrew::Error, Phases::Neovim::Error, Phases::OpenCode2::Error, SystemCallError => error
     report_failure(error)
   end
 
   private
 
-  attr_reader :options, :config, :runtime, :linker, :homebrew, :opencode2
+  attr_reader :options, :config, :runtime, :linker, :homebrew, :neovim, :opencode2
 
   def reporter
     runtime.reporter
@@ -82,6 +89,16 @@ class Installer
     0
   end
 
+  def install_neovim
+    plan = neovim.plan(available_targets: current_nvim_configuration_targets)
+    return complete_dry_run if options.dry_run
+    return 0 unless options.yes || runtime.prompt.confirm?
+
+    neovim.apply(plan)
+    reporter.report_completion
+    0
+  end
+
   def install_full_setup
     homebrew_plan = homebrew.plan unless options.skip_brew
     opencode2_plan = begin
@@ -91,6 +108,7 @@ class Installer
       nil
     end
     mapping_plan = plan_mappings
+    neovim_plan = neovim.plan(available_targets: planned_nvim_configuration_targets(mapping_plan))
     opencode2_failed = opencode2_plan.nil?
 
     unless options.dry_run
@@ -106,7 +124,7 @@ class Installer
       linker.apply(mapping_plan)
     end
 
-    post_install(mapping_plan)
+    post_install(neovim_plan)
     opencode2_failed ? 1 : 0
   end
 
@@ -168,29 +186,32 @@ class Installer
     end
   end
 
-  def post_install(mapping_plan)
+  def post_install(neovim_plan)
     install_skills
 
-    reporter.report_phase("Post-install")
-    install_nvim_plugins(mapping_plan)
+    neovim.apply(neovim_plan) unless options.dry_run
     report_completion
   end
 
-  def install_nvim_plugins(mapping_plan)
-    return unless nvim_config_available?(mapping_plan)
-
-    if options.dry_run
-      reporter.report_action(:skipped, message: "would run nvim --headless +PlugInstall +qa")
-      return
+  def current_nvim_configuration_targets
+    config.nvim_configuration_targets.select do |target|
+      mapping = config.mappings.find { |candidate| candidate.target == target }
+      mapped_target?(mapping)
     end
-
-    runtime.command_runner.run("nvim", "--headless", "+PlugInstall", "+qa", err: File::NULL)
   end
 
-  def nvim_config_available?(mapping_plan)
-    File.exist?(config.nvim_init_target) || mapping_plan.any? do |operation|
-      operation.type == :create_symlink && operation.target == config.nvim_init_target
+  def planned_nvim_configuration_targets(mapping_plan)
+    config.nvim_configuration_targets.select do |target|
+      mapping_plan.any? do |operation|
+        operation.target == target && [:create_symlink, :create_copy, :unchanged, :unchanged_copy].include?(operation.type)
+      end
     end
+  end
+
+  def mapped_target?(mapping)
+    mapping && File.symlink?(mapping.target) && File.realpath(mapping.target) == File.realpath(mapping.source)
+  rescue Errno::ENOENT, Errno::ELOOP, Errno::ENOTDIR
+    false
   end
 
   def report_completion
@@ -198,8 +219,7 @@ class Installer
       reporter.report_dry_completion
     else
       reporter.report_completion([
-        "Restart your terminal (or run: exec zsh)",
-        "Open nvim and run :PlugInstall if plugins weren't installed"
+        "Restart your terminal (or run: exec zsh)"
       ])
     end
   end
