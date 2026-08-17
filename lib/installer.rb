@@ -19,7 +19,7 @@ class Installer
       command_runner: runtime.command_runner,
       reporter: runtime.reporter
     )
-    @opencode2 = Phases::OpenCode2.new(
+    @opencode2 = Phases::OpenCode2::Phase.new(
       global_dir: config.opencode2_global_dir,
       bin_dir: config.user_bin_dir,
       checkout: config.opencode_fork_checkout,

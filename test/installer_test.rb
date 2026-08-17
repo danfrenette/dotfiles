@@ -440,11 +440,10 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(skill_target("tdd"))
   end
 
-  def test_opencode2_dry_run_reports_exact_plan_without_execution_or_mutation
+  def test_opencode2_dry_run_skips_confirmation_execution_and_mutation
     home = tmp_path("home")
     global_dir = File.join(home, ".local", "share", "pnpm", "global")
     bin_dir = File.join(home, ".local", "bin")
-    executable = File.join(bin_dir, "opencode2")
     pnpm = "/opt/homebrew/bin/pnpm"
     git = "/usr/bin/git"
     bun = "/opt/homebrew/bin/bun"
@@ -459,38 +458,15 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    package = @reporter.actions.find { |action| action[:type] == :package }
-    destination = @reporter.actions.find { |action| action[:type] == :destination }
-    install = @reporter.actions.find { |action| action[:type] == :install }
-    verification = @reporter.actions.find { |action| action[:type] == :verify }
-    source = @reporter.actions.find { |action| action[:type] == :source }
-    dependencies = @reporter.actions.find { |action| action[:type] == :dependencies }
-    service = @reporter.actions.find { |action| action[:type] == :service }
-    workflow = @reporter.actions.find { |action| action[:type] == :workflow }
-    assert_equal "@opencode-ai/cli@next", package[:meta][:specification]
-    assert_equal "next", package[:meta][:channel]
-    assert_equal global_dir, destination[:meta][:package_directory]
-    assert_equal bin_dir, destination[:meta][:binary_directory]
-    assert_equal executable, destination[:meta][:executable]
-    assert_equal [
-      pnpm, "add", "--global", "--global-dir=#{global_dir}",
-      "--global-bin-dir=#{bin_dir}", "@opencode-ai/cli@next"
-    ], install[:meta][:command]
-    assert_equal [executable, "--version"], verification[:meta][:command]
-    assert_equal [
-      git, "clone", "--branch", "dan-dev", "--single-branch",
-      "https://github.com/danfrenette/opencode.git", checkout
-    ], source[:meta][:command]
-    assert_equal [bun, "install", "--frozen-lockfile", "--cwd", checkout], dependencies[:meta][:command]
-    assert_equal [executable, "service", "start"], service[:meta][:command]
-    assert_equal [bun, "run", "--cwd", checkout, "dev:web:live"], workflow[:meta][:command]
+    assert_equal ["Installing OpenCode2"], @reporter.phases
     assert_empty command_runner.calls
     refute File.exist?(global_dir)
     refute File.exist?(bin_dir)
+    refute File.exist?(checkout)
     assert @reporter.dry_completion_reported
   end
 
-  def test_confirmed_opencode2_creates_destinations_installs_and_verifies_exact_executable
+  def test_confirmed_opencode2_applies_phase_and_reports_completion
     global_dir = tmp_path("home/.local/share/pnpm/global")
     bin_dir = tmp_path("home/.local/bin")
     executable = File.join(bin_dir, "opencode2")
@@ -522,20 +498,7 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 0, status
     assert File.directory?(global_dir)
-    assert File.directory?(bin_dir)
-    assert_equal [
-      [
-        pnpm, "add", "--global", "--global-dir=#{global_dir}",
-        "--global-bin-dir=#{bin_dir}", "@opencode-ai/cli@next",
-        {env: {"PATH" => "#{bin_dir}#{File::PATH_SEPARATOR}#{ENV.fetch("PATH", "")}"}}
-      ],
-      [executable, "--version"],
-      [
-        git, "clone", "--branch", "dan-dev", "--single-branch",
-        "https://github.com/danfrenette/opencode.git", checkout
-      ],
-      [bun, "install", "--frozen-lockfile", "--cwd", checkout]
-    ], command_runner.calls
+    assert File.directory?(checkout)
     assert @reporter.completion_reported
   end
 
@@ -575,35 +538,6 @@ class InstallerTest < DotfilesTestCase
     assert_empty runner.calls
   end
 
-  def test_opencode2_missing_prerequisites_and_old_bun_fail_before_prompt_or_mutation
-    cases = [
-      [{}, {}, "pnpm not found"],
-      [{"pnpm" => "/fake/pnpm"}, {}, "Git not found"],
-      [{"pnpm" => "/fake/pnpm", "git" => "/fake/git"}, {}, "Bun not found"],
-      [
-        {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
-        {"bun" => "1.2.22\n"},
-        "Bun 1.3 or newer is required; found 1.2.22"
-      ]
-    ]
-
-    cases.each do |executables, captures, expected|
-      @reporter.clear
-      runner = TestCommandRunner.new(executables: executables, captures: captures)
-      prompt = TestPrompt.new { raise "failed preflight prompted" }
-
-      status = build_installer(
-        options: {only: :opencode2},
-        runtime: {command_runner: runner, prompt: prompt}
-      ).install
-
-      assert_equal 1, status
-      assert @reporter.warnings.any? { |warning| warning.include?(expected) }
-      assert_empty runner.calls
-      refute File.exist?(tmp_path("home/.local"))
-    end
-  end
-
   def test_declined_opencode2_confirmation_mutates_and_executes_nothing
     runner = TestCommandRunner.new(
       executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
@@ -618,122 +552,6 @@ class InstallerTest < DotfilesTestCase
     assert_empty runner.calls
     refute File.exist?(tmp_path("home/.local"))
     refute File.exist?(tmp_path("home/code"))
-  end
-
-  def test_opencode2_package_failure_skips_exact_verification_and_fork_checkout
-    runner = TestCommandRunner.new(
-      result: false,
-      executables: {
-        "pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "opencode2" => "/unrelated/opencode2"
-      }
-    )
-
-    status = build_installer(
-      options: {only: :opencode2, yes: true},
-      runtime: {command_runner: runner}
-    ).install
-
-    assert_equal 1, status
-    assert_equal 1, runner.calls.length
-    assert_includes @reporter.warnings, "OpenCode2 installation exited with a nonzero status"
-    refute File.exist?(tmp_path("home/code/opencode"))
-  end
-
-  def test_opencode2_requires_planned_executable_even_when_unrelated_one_is_available
-    runner = TestCommandRunner.new(
-      executables: {
-        "pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "opencode2" => "/unrelated/opencode2"
-      }
-    )
-
-    status = build_installer(
-      options: {only: :opencode2, yes: true},
-      runtime: {command_runner: runner}
-    ).install
-
-    assert_equal 1, status
-    assert_equal 1, runner.calls.length
-    assert_includes @reporter.warnings,
-      "OpenCode2 executable was not installed at #{tmp_path("home/.local/bin/opencode2")}"
-  end
-
-  def test_existing_dan_dev_checkout_is_updated_by_fast_forward_from_explicit_fork
-    checkout = tmp_path("home/code/opencode")
-    create_opencode_fork(checkout, git: true)
-    executable = tmp_path("home/.local/bin/opencode2")
-    runner = TestCommandRunner.new(
-      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
-      on_run: lambda do |command, _options|
-        next unless command.first == "/fake/pnpm"
-
-        FileUtils.mkdir_p(File.dirname(executable))
-        File.write(executable, "#!/bin/sh\n")
-        FileUtils.chmod("+x", executable)
-      end
-    )
-
-    status = build_installer(
-      options: {only: :opencode2, yes: true},
-      config: {opencode_fork_checkout: checkout},
-      runtime: {command_runner: runner}
-    ).install
-
-    assert_equal 0, status
-    assert_includes runner.calls, [
-      "/fake/git", "-C", checkout, "pull", "--ff-only",
-      "https://github.com/danfrenette/opencode.git", "dan-dev"
-    ]
-  end
-
-  def test_existing_checkout_with_unwritable_git_metadata_fails_before_mutation
-    checkout = tmp_path("home/code/opencode")
-    create_opencode_fork(checkout, git: true)
-    objects = File.join(checkout, ".git", "objects")
-    FileUtils.chmod(0o500, objects)
-    runner = TestCommandRunner.new(
-      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
-    )
-
-    status = build_installer(
-      options: {only: :opencode2, yes: true},
-      config: {opencode_fork_checkout: checkout},
-      runtime: {command_runner: runner}
-    ).install
-
-    assert_equal 1, status
-    assert_includes @reporter.warnings, "OpenCode fork Git metadata is not writable: #{objects}"
-    assert_empty runner.calls
-  ensure
-    FileUtils.chmod(0o700, objects) if objects && File.exist?(objects)
-  end
-
-  def test_fork_workflow_must_use_the_external_service_proxy_launcher
-    checkout = tmp_path("home/code/opencode")
-    executable = tmp_path("home/.local/bin/opencode2")
-    runner = TestCommandRunner.new(
-      executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"},
-      on_run: lambda do |command, _options|
-        if command.first == "/fake/pnpm"
-          FileUtils.mkdir_p(File.dirname(executable))
-          File.write(executable, "#!/bin/sh\n")
-          FileUtils.chmod("+x", executable)
-        elsif command.first == "/fake/git"
-          FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
-          File.write(File.join(checkout, "package.json"), '{"scripts":{"dev:web:live":"test"}}')
-          File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), "")
-        end
-      end
-    )
-
-    status = build_installer(
-      options: {only: :opencode2, yes: true},
-      config: {opencode_fork_checkout: checkout},
-      runtime: {command_runner: runner}
-    ).install
-
-    assert_equal 1, status
-    assert_includes @reporter.warnings, "OpenCode fork dev:web:live does not use the expected proxy launcher"
-    refute runner.calls.any? { |call| call.first == "/fake/bun" }
   end
 
   def test_default_mapping_preflight_failure_prevents_homebrew_execution
@@ -929,25 +747,6 @@ class InstallerTest < DotfilesTestCase
         end
       end
     )
-  end
-
-  def create_opencode_fork(checkout, git: false)
-    FileUtils.mkdir_p(File.join(checkout, "packages/app/script"))
-    File.write(
-      File.join(checkout, "package.json"),
-      '{"scripts":{"dev:web:live":"bun run packages/app/script/dev-web-live.ts"}}'
-    )
-    File.write(File.join(checkout, "packages/app/script/dev-web-live.ts"), <<~TS)
-      const server = new URL(process.env.OPENCODE_DEV_SERVER_URL ?? "http://127.0.0.1:4096")
-      await fetch(new URL("/api/health", server))
-      const env = { OPENCODE_DEV_SERVER_URL: server.origin }
-      throw new Error("Start it separately and retry.")
-    TS
-    return unless git
-
-    FileUtils.mkdir_p(File.join(checkout, ".git", "objects"))
-    FileUtils.mkdir_p(File.join(checkout, ".git", "refs"))
-    File.write(File.join(checkout, ".git", "HEAD"), "ref: refs/heads/dan-dev\n")
   end
 
   def create_skill(path)

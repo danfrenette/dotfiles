@@ -16,11 +16,13 @@ require "support/test_config"
 require "support/test_prompt"
 require "support/test_command_runner"
 require "support/mapping_fixtures"
+require "support/opencode_fixtures"
 
 class DotfilesTestCase < Minitest::Test
   include Assertions
   include SkillFixtures
   include MappingFixtures
+  include OpenCodeFixtures
 
   def setup
     @tmpdir = Dir.mktmpdir("dotfiles-test")
