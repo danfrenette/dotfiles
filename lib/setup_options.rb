@@ -3,14 +3,12 @@
 class SetupOptions
   SUPPORTED_PHASES = [:homebrew, :opencode2, :mappings, :skills, :neovim].freeze
   DEFAULTS = {
-    skip_brew: false,
     dry_run: false,
     yes: false,
     only: []
   }.freeze
 
-  attr_reader :skip_brew,
-    :dry_run,
+  attr_reader :dry_run,
     :yes,
     :only
 
@@ -20,7 +18,6 @@ class SetupOptions
     selected = Array(options.fetch(:only))
     validate_phases(selected)
 
-    @skip_brew = options.fetch(:skip_brew)
     @dry_run = options.fetch(:dry_run)
     @yes = options.fetch(:yes)
     @only = selected.uniq.freeze

@@ -5,7 +5,6 @@ tap "schpet/tap"
 # CLI Tools
 # ==============================================================================
 
-brew "opencode"          # AI coding agent (stable)
 brew "git"
 brew "git-delta"        # Better git diffs
 brew "gh"               # GitHub CLI

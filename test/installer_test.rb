@@ -8,7 +8,6 @@ class InstallerTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
-    @skills_manifest = tmp_path("skills.yml")
   end
 
   def test_full_install_runs_expected_phases_and_completion
@@ -739,7 +738,7 @@ class InstallerTest < DotfilesTestCase
 
   def build_manifest_installer(repository_root, home_root, manifest_path)
     Installer.new(
-      options: SetupOptions.new(skip_brew: true, only: :mappings, yes: true),
+      options: SetupOptions.new(only: :mappings, yes: true),
       config: Config.new(
         repository_root: repository_root,
         home_root: home_root,
@@ -750,6 +749,9 @@ class InstallerTest < DotfilesTestCase
   end
 
   def build_installer(options: {}, config: {}, runtime: {})
+    skip_brew = options.fetch(:skip_brew, true)
+    options.delete(:skip_brew)
+    options[:only] = SetupOptions::SUPPORTED_PHASES - [:homebrew] if skip_brew && !options[:only]
     setup_config = TestConfig.new(
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
@@ -760,11 +762,11 @@ class InstallerTest < DotfilesTestCase
       pnpm_candidates: config.fetch(:pnpm_candidates, ["/fake/pnpm"])
     )
 
-    runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only]
+    runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless runtime[:command_runner]
     runtime = {prompt: TestPrompt.new}.merge(runtime)
 
     Installer.new(
-      options: SetupOptions.new(skip_brew: true, **options),
+      options: SetupOptions.new(**options),
       config: setup_config,
       runtime: SetupRuntime.new(reporter: @reporter, **runtime)
     )

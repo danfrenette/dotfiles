@@ -123,7 +123,7 @@ class Installer
   end
 
   def install_full_setup(selected)
-    homebrew_plan = homebrew.plan if selected.include?(:homebrew) && !options.skip_brew
+    homebrew_plan = homebrew.plan if selected.include?(:homebrew)
     opencode2_plan = if selected.include?(:opencode2)
       begin
         opencode2.plan

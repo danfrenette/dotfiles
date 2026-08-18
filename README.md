@@ -38,14 +38,11 @@ bundle install
 # Full installation
 ./install.rb
 
-# Skip Homebrew packages (just symlink configs)
-./install.rb --skip-brew
-
 # Dry run (shows what would be backed up/replaced)
 ./install.rb --dry-run
 
-# Install or update agent skills only
-./install.rb --only skills
+# Select exact phases without interactive selection
+./install.rb --only mappings --only skills
 ```
 
 ### Development
@@ -53,7 +50,6 @@ bundle install
 ```bash
 bundle exec rake test       # Run tests
 bundle exec rake standard   # Run linter
-bundle exec rake brew       # Install Homebrew packages only
 ```
 
 ## What's Included
@@ -74,7 +70,11 @@ Run `./install.rb --only skills` to launch the pinned [skills CLI](https://githu
 
 1. Add source files to the appropriate directory
 2. Update `lib/config.rb` with the new mappings
-3. Run `./install.rb --skip-brew` to create symlinks
+3. Run `./install.rb --only mappings` to create symlinks
+
+## Verification
+
+Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb --dry-run`, and `bundle exec rake` to verify the setup safely. The default installer lets you select from Homebrew, OpenCode2, mappings, skills, and Neovim; repeat `--only` to avoid interactive selection. Do not use `--yes` unless you intend to apply every selected phase.
 
 ## Backup Behavior
 
