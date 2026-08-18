@@ -11,7 +11,6 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "linker"
 require "config"
 require "support/assertions"
-require "support/skill_fixtures"
 require "support/test_config"
 require "support/test_prompt"
 require "support/test_command_runner"
@@ -20,7 +19,6 @@ require "support/opencode_fixtures"
 
 class DotfilesTestCase < Minitest::Test
   include Assertions
-  include SkillFixtures
   include MappingFixtures
   include OpenCodeFixtures
 

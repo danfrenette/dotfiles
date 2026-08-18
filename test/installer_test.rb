@@ -8,18 +8,15 @@ class InstallerTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
-    @skills_root = tmp_path("skills")
-    @skills_target = tmp_path("opencode/skill")
     @skills_manifest = tmp_path("skills.yml")
   end
 
   def test_full_install_runs_expected_phases_and_completion
-    create_skill("engineering/tdd")
     build_installer(config: {local_skills: ["engineering/tdd"]}).install
 
     assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing Neovim plugins", "Installing skills"], @reporter.phases
     assert @reporter.completion_reported
-    assert_reported_action @reporter, :linked, name: "tdd"
+    assert_includes @reporter.action_types, :skills
   end
 
   def test_plans_confirms_and_applies_mappings
@@ -273,7 +270,6 @@ class InstallerTest < DotfilesTestCase
 
   def test_only_mappings_excludes_unrelated_phases
     source, target = create_mapping("gitconfig")
-    create_skill("engineering/tdd")
 
     status = build_installer(
       options: {skip_brew: false, only: :mappings, yes: true},
@@ -283,7 +279,6 @@ class InstallerTest < DotfilesTestCase
     assert_equal 0, status
     assert_equal ["Linking dotfiles"], @reporter.phases
     assert_symlink target, to: source
-    refute File.exist?(skill_target("tdd"))
   end
 
   def test_homebrew_dry_run_reports_exact_plan_without_execution
@@ -422,7 +417,6 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = TestCommandRunner.new(executables: {"brew" => "/opt/homebrew/bin/brew"})
-    create_skill("engineering/tdd")
 
     status = build_installer(
       options: {only: :homebrew, yes: true},
@@ -437,7 +431,6 @@ class InstallerTest < DotfilesTestCase
     assert_equal 0, status
     assert_equal ["Installing Homebrew packages"], @reporter.phases
     refute File.exist?(target)
-    refute File.exist?(skill_target("tdd"))
   end
 
   def test_neovim_only_requires_all_currently_mapped_configuration_targets
@@ -450,7 +443,7 @@ class InstallerTest < DotfilesTestCase
       File.symlink(source, target) unless index == targets.length - 1
       mapping(source, target)
     end
-    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim", "pnpm" => "/fake/pnpm"})
 
     status = build_installer(
       options: {only: :neovim, yes: true},
@@ -480,6 +473,22 @@ class InstallerTest < DotfilesTestCase
     assert @reporter.dry_completion_reported
     assert_empty runner.calls
     assert_equal ["Installing Neovim plugins"], @reporter.phases
+  end
+
+  def test_skills_only_dry_run_reports_handoff_without_execution_or_other_phases
+    runner = TestCommandRunner.new(executables: {"pnpm" => "/fake/pnpm"})
+
+    status = build_installer(
+      options: {only: :skills, dry_run: true},
+      runtime: {command_runner: runner, prompt: TestPrompt.new { raise "dry run prompted" }}
+    ).install
+
+    assert_equal 0, status
+    skills = @reporter.actions.find { |action| action[:type] == :skills }
+    assert_equal ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"], skills[:meta][:command]
+    assert_equal ["Installing skills"], @reporter.phases
+    assert_empty runner.calls
+    assert @reporter.dry_completion_reported
   end
 
   def test_neovim_only_accepts_current_copied_configuration
@@ -583,7 +592,7 @@ class InstallerTest < DotfilesTestCase
 
   def test_opencode2_preflight_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
     source, target = create_mapping("gitconfig")
-    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim", "pnpm" => "/fake/pnpm"})
 
     status = build_installer(
       options: {yes: true},
@@ -594,8 +603,11 @@ class InstallerTest < DotfilesTestCase
     assert_equal 1, status
     assert_symlink target, to: source
     assert_includes @reporter.phases, "Installing Neovim plugins"
-    assert_includes @reporter.warnings, "pnpm not found; install pnpm before running the OpenCode2 phase"
-    assert_equal [["/fake/nvim", "--headless", "+PlugInstall", "+qa"]], runner.calls
+    assert_includes @reporter.warnings, "Git not found; install Git before running the OpenCode2 phase"
+    assert_equal [
+      ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"],
+      ["/fake/nvim", "--headless", "+PlugInstall", "+qa"]
+    ], runner.calls
   end
 
   def test_declined_opencode2_confirmation_mutates_and_executes_nothing
@@ -636,7 +648,6 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"}, result: false)
-    create_skill("engineering/tdd")
 
     status = build_installer(
       options: {skip_brew: false},
@@ -650,8 +661,7 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 1, status
     refute File.exist?(target)
-    refute File.exist?(skill_target("tdd"))
-    refute_includes @reporter.phases, "Installing skills"
+    assert_includes @reporter.phases, "Installing skills"
     assert_includes @reporter.phases, "Installing Neovim plugins"
   end
 
@@ -660,7 +670,6 @@ class InstallerTest < DotfilesTestCase
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default setup prompted" }
-    create_skill("engineering/tdd")
 
     status = build_installer(
       options: {skip_brew: false},
@@ -675,7 +684,6 @@ class InstallerTest < DotfilesTestCase
     assert_equal 0, status
     assert_includes command_runner.calls, ["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]
     assert_symlink target, to: source
-    assert_symlink skill_target("tdd")
   end
 
   def test_default_dry_run_reports_full_setup_without_execution
@@ -683,7 +691,6 @@ class InstallerTest < DotfilesTestCase
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
     prompt = TestPrompt.new { raise "default dry run prompted" }
-    create_skill("engineering/tdd")
 
     status = build_installer(
       options: {skip_brew: false, dry_run: true},
@@ -702,7 +709,6 @@ class InstallerTest < DotfilesTestCase
     ], @reporter.phases
     assert_empty command_runner.calls
     refute File.exist?(target)
-    refute File.exist?(skill_target("tdd"))
     assert @reporter.actions.any? { |action| action[:type] == :neovim }
     assert @reporter.dry_completion_reported
   end
@@ -729,27 +735,6 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?(targets.first)
   end
 
-  def test_installs_explicit_local_skills_from_manifest
-    create_skill("engineering/tdd")
-    build_installer(config: {local_skills: ["engineering/tdd"]}).install
-
-    assert_symlink skill_target("tdd"), to: File.join(@skills_root, "engineering", "tdd")
-  end
-
-  def test_skills_only_installs_skills_without_linking_dotfiles
-    create_skill("engineering/tdd")
-    status = build_installer(
-      options: {skip_brew: false, skills_only: true},
-      config: {local_skills: ["engineering/tdd"]}
-    ).install
-
-    assert_equal 0, status
-    assert_symlink skill_target("tdd")
-    assert_includes @reporter.phases, "Installing skills"
-    refute_includes @reporter.phases, "Linking dotfiles"
-    refute_includes @reporter.phases, "Installing Neovim plugins"
-  end
-
   private
 
   def build_manifest_installer(repository_root, home_root, manifest_path)
@@ -765,14 +750,7 @@ class InstallerTest < DotfilesTestCase
   end
 
   def build_installer(options: {}, config: {}, runtime: {})
-    local_skills = config.fetch(:local_skills, [])
-    write_skills_manifest(@skills_manifest, local_skills: local_skills)
-
     setup_config = TestConfig.new(
-      skills_source_root: @skills_root,
-      opencode_skills_target: @skills_target,
-      local_skills: local_skills,
-      skills_manifest_path: @skills_manifest,
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
       nvim_configuration_targets: config.fetch(:nvim_configuration_targets, []),
@@ -782,7 +760,7 @@ class InstallerTest < DotfilesTestCase
       pnpm_candidates: config.fetch(:pnpm_candidates, ["/fake/pnpm"])
     )
 
-    runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only] || options[:skills_only]
+    runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only]
 
     Installer.new(
       options: SetupOptions.new(skip_brew: true, **options),
@@ -811,13 +789,5 @@ class InstallerTest < DotfilesTestCase
         end
       end
     )
-  end
-
-  def create_skill(path)
-    super(path, root: @skills_root)
-  end
-
-  def skill_target(name)
-    File.join(@skills_target, name)
   end
 end

@@ -6,16 +6,14 @@ RUBY_VERSION="$(tr -d '[:space:]' < "$ROOT/.ruby-version")"
 DRY_RUN=false
 HELP=false
 ONLY_PHASE=""
-SKILLS_ONLY=false
 
 print_usage() {
   cat <<'USAGE'
 Usage: install.rb [options]
         --dry-run                    Print the plan without applying it
         --yes                        Apply the plan without confirmation
-        --only PHASE                 Run only homebrew, opencode2, mappings, or neovim
+        --only PHASE                 Run only homebrew, opencode2, mappings, neovim, or skills
         --skip-brew                  Skip the Homebrew phase
-        --skills-only                Install skills only
     -h, --help                       Show this help
 USAGE
 }
@@ -34,10 +32,6 @@ validate_arguments() {
         shift
         ;;
       --yes|--skip-brew)
-        shift
-        ;;
-      --skills-only)
-        SKILLS_ONLY=true
         shift
         ;;
       --only)
@@ -67,11 +61,8 @@ validate_arguments() {
     print_usage
     exit 0
   fi
-  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "opencode2" && "$ONLY_PHASE" != "mappings" && "$ONLY_PHASE" != "neovim" ]]; then
+  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "opencode2" && "$ONLY_PHASE" != "mappings" && "$ONLY_PHASE" != "neovim" && "$ONLY_PHASE" != "skills" ]]; then
     usage_error "Unsupported phase: $ONLY_PHASE"
-  fi
-  if [[ -n "$ONLY_PHASE" && "$SKILLS_ONLY" == true ]]; then
-    usage_error "--only and --skills-only cannot be combined"
   fi
 }
 

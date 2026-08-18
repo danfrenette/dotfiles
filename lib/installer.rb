@@ -5,7 +5,7 @@ require_relative "config"
 require_relative "phases/homebrew"
 require_relative "phases/neovim"
 require_relative "phases/opencode2"
-require_relative "skill_installer"
+require_relative "phases/skills"
 require_relative "setup_options"
 require_relative "setup_runtime"
 
@@ -31,14 +31,14 @@ class Installer
   end
 
   def install
-    return install_skills_only if options.skills_only
     return install_homebrew if options.only == :homebrew
     return install_mappings if options.only == :mappings
     return install_neovim if options.only == :neovim
     return install_opencode2 if options.only == :opencode2
+    return install_skills_phase if options.only == :skills
 
     install_full_setup
-  rescue ArgumentError, Phases::Homebrew::Error, Phases::Neovim::Error, Phases::OpenCode2::Error, SystemCallError => error
+  rescue ArgumentError, Phases::Homebrew::Error, Phases::Neovim::Error, Phases::OpenCode2::Error, Phases::Skills::Error, SystemCallError => error
     report_failure(error)
   end
 
@@ -58,9 +58,12 @@ class Installer
     )
   end
 
-  def install_skills_only
-    install_skills
-    0
+  def skills
+    @skills ||= Phases::Skills.new(
+      package_manager_candidates: config.pnpm_candidates,
+      command_runner: runtime.command_runner,
+      reporter: reporter
+    )
   end
 
   def install_mappings
@@ -102,6 +105,16 @@ class Installer
     0
   end
 
+  def install_skills_phase
+    plan = skills.plan
+    return complete_dry_run if options.dry_run
+    return 0 unless options.yes || runtime.prompt.confirm?
+
+    skills.apply(plan)
+    reporter.report_completion
+    0
+  end
+
   def install_full_setup
     homebrew_plan = homebrew.plan unless options.skip_brew
     opencode2_plan = begin
@@ -112,6 +125,7 @@ class Installer
     end
     mapping_plan = plan_mappings
     neovim_plan = neovim.plan(available_targets: planned_nvim_configuration_targets(mapping_plan))
+    skills_plan = skills.plan
     opencode2_failed = opencode2_plan.nil?
 
     unless options.dry_run
@@ -127,7 +141,7 @@ class Installer
       linker.apply(mapping_plan)
     end
 
-    post_install(neovim_plan)
+    post_install(skills_plan, neovim_plan)
     opencode2_failed ? 1 : 0
   end
 
@@ -145,40 +159,6 @@ class Installer
     1
   end
 
-  def install_skills
-    guard_against_recursive_skills_destination
-
-    reporter.report_phase("Installing skills")
-    skills = local_skills
-
-    if skills.empty?
-      reporter.report_warning("no skills found in #{config.skills_source_root}")
-      return
-    end
-
-    skill_installer = SkillInstaller.new(dry_run: options.dry_run, linker: linker, reporter: reporter)
-    skill_installer.install(skills, target_dir: config.opencode_skills_target)
-  end
-
-  def local_skills
-    config.local_skills.to_h do |path|
-      source = File.join(config.skills_source_root, path)
-      [File.basename(path), source]
-    end
-  end
-
-  def guard_against_recursive_skills_destination
-    return unless File.symlink?(config.opencode_skills_target)
-
-    destination = File.realpath(config.opencode_skills_target)
-    source_root = File.realpath(config.skills_source_root)
-    return unless destination == source_root || destination.start_with?("#{source_root}/")
-
-    raise "#{config.opencode_skills_target} is a symlink into this repo (#{destination})"
-  rescue Errno::ENOENT
-    nil
-  end
-
   def plan_mappings
     reporter.report_phase("Linking dotfiles")
 
@@ -189,8 +169,8 @@ class Installer
     end
   end
 
-  def post_install(neovim_plan)
-    install_skills
+  def post_install(skills_plan, neovim_plan)
+    skills.apply(skills_plan) unless options.dry_run
 
     neovim.apply(neovim_plan) unless options.dry_run
     report_completion

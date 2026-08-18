@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 class TestConfig
-  attr_reader :skills_source_root,
-    :opencode_skills_target,
-    :local_skills,
-    :skills_manifest_path,
-    :mappings,
+  attr_reader :mappings,
     :nvim_configuration_targets,
     :brewfile_path,
     :opencode2_global_dir,
@@ -14,10 +10,6 @@ class TestConfig
     :pnpm_candidates
 
   def initialize(
-    skills_source_root:,
-    opencode_skills_target:,
-    skills_manifest_path:,
-    local_skills: [],
     mappings: [],
     nvim_configuration_targets: [],
     brewfile_path: "/nonexistent/Brewfile",
@@ -26,10 +18,6 @@ class TestConfig
     opencode_fork_checkout: "/nonexistent/code/opencode",
     pnpm_candidates: ["/fake/pnpm"]
   )
-    @skills_source_root = skills_source_root
-    @opencode_skills_target = opencode_skills_target
-    @local_skills = local_skills
-    @skills_manifest_path = skills_manifest_path
     @mappings = mappings
     @nvim_configuration_targets = nvim_configuration_targets
     @brewfile_path = brewfile_path

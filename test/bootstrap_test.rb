@@ -102,6 +102,22 @@ class BootstrapTest < DotfilesTestCase
       "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only neovim --dry-run"
   end
 
+  def test_accepts_and_forwards_skills_dry_run_when_prerequisites_exist
+    bin = create_dir("bin")
+    log = tmp_path("commands.log")
+    create_fake_brew(bin)
+    create_fake_rbenv(bin)
+
+    _stdout, stderr, status = run_bootstrap(
+      base_environment(bin, log).merge("INSTALLED_RUBY" => "4.0.3"),
+      "--only", "skills", "--dry-run"
+    )
+
+    assert status.success?, stderr
+    assert_includes File.readlines(log, chomp: true),
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only skills --dry-run"
+  end
+
   def test_missing_homebrew_runs_official_installer_in_normal_mode
     bin = create_dir("bin")
     log = tmp_path("commands.log")

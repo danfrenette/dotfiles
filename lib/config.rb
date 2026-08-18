@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "yaml"
 require_relative "mapping_manifest"
 
 class Config
@@ -38,14 +37,6 @@ class Config
     dotfiles_path("Brewfile")
   end
 
-  def skills_source_root
-    dotfiles_path("skills")
-  end
-
-  def opencode_skills_target
-    home_path(".config", "opencode", "skill")
-  end
-
   def opencode2_global_dir
     home_path(".local", "share", "pnpm", "global")
   end
@@ -65,19 +56,5 @@ class Config
       home_path("Library", "pnpm", "pnpm"),
       home_path(".local", "share", "pnpm", "pnpm")
     ]
-  end
-
-  def skills_manifest_path
-    dotfiles_path("skills.yml")
-  end
-
-  def local_skills
-    Array(skills_data["local_skills"])
-  end
-
-  private
-
-  def skills_data
-    @skills_data ||= YAML.safe_load_file(skills_manifest_path) || {}
   end
 end

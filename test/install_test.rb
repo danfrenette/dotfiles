@@ -14,9 +14,8 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--dry-run"
     assert_includes stdout, "--yes"
     assert_includes stdout, "--only"
-    assert_includes stdout, "homebrew, opencode2, mappings, or neovim"
+    assert_includes stdout, "homebrew, opencode2, mappings, neovim, or skills"
     assert_includes stdout, "--skip-brew"
-    assert_includes stdout, "--skills-only"
     assert_empty stderr
   end
 
@@ -78,14 +77,6 @@ class InstallTest < DotfilesTestCase
     assert_includes stderr, "Usage: install.rb [options]"
   end
 
-  def test_conflicting_phase_selectors_exit_with_usage_error
-    stdout, stderr, status = run_install("--only", "mappings", "--skills-only")
-
-    assert_equal 64, status.exitstatus
-    assert_empty stdout
-    assert_includes stderr, "--only and --skills-only cannot be combined"
-  end
-
   def test_declined_confirmation_exits_successfully_without_changes
     home = create_dir("home")
 
@@ -114,19 +105,6 @@ class InstallTest < DotfilesTestCase
     assert_equal 64, status.exitstatus
     assert_empty stdout
     assert_includes stderr, "Unexpected arguments: unexpected"
-  end
-
-  def test_standalone_skills_installer_dry_runs
-    home = create_dir("home")
-    executable = File.expand_path("../bin/install-skills", __dir__)
-
-    stdout, stderr, status = Bundler.with_unbundled_env do
-      Open3.capture3({"HOME" => home}, RbConfig.ruby, executable, "--dry-run")
-    end
-
-    assert status.success?, stderr
-    assert_includes stdout, "commit-writer"
-    refute File.exist?(File.join(home, ".config", "opencode", "skill", "commit-writer"))
   end
 
   private

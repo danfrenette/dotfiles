@@ -45,10 +45,7 @@ bundle install
 ./install.rb --dry-run
 
 # Install or update agent skills only
-bin/install-skills
-
-# Dry run skills installation only
-bin/install-skills --dry-run
+./install.rb --only skills
 ```
 
 ### Development
@@ -66,18 +63,12 @@ bundle exec rake brew       # Install Homebrew packages only
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **OpenCode** - Custom AI skills installed from `skills/**/SKILL.md`
+- **OpenCode** - Personal skills installed from `danfrenette/skills`
 - **Homebrew** - CLI tools and casks via Brewfile
 
 ## Agent Skills
 
-Skills follow the same source layout used by [mattpocock/skills](https://github.com/mattpocock/skills):
-
-```text
-skills/<category>/<skill-name>/SKILL.md
-```
-
-Run `bin/install-skills` to symlink each skill directory into `~/.config/opencode/skill`. This installer is standalone so skills can be updated frequently without running the full dotfiles bootstrap.
+Run `./install.rb --only skills` to launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
 
 ## Adding New Dotfiles
 

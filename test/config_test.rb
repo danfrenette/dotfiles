@@ -153,21 +153,4 @@ class ConfigTest < DotfilesTestCase
 
     assert_equal File.join(Dir.home, ".config", "nvim"), path
   end
-
-  def test_skills_source_root_uses_matt_pocock_layout
-    assert_equal @config.dotfiles_path("skills"), @config.skills_source_root
-  end
-
-  def test_opencode_skills_target_points_to_user_skill_directory
-    assert_equal @config.home_path(".config", "opencode", "skill"), @config.opencode_skills_target
-  end
-
-  def test_skills_manifest_path_points_to_repo_manifest
-    assert_equal @config.dotfiles_path("skills.yml"), @config.skills_manifest_path
-  end
-
-  def test_local_skills_returns_explicit_manifest_paths
-    assert_includes @config.local_skills, "engineering/commit-writer"
-    assert_includes @config.local_skills, "engineering/reviewer"
-  end
 end
