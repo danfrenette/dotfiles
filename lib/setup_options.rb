@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 class SetupOptions
-  SUPPORTED_PHASES = [:homebrew, :mappings, :neovim, :opencode2, :skills].freeze
+  SUPPORTED_PHASES = [:homebrew, :opencode2, :mappings, :skills, :neovim].freeze
   DEFAULTS = {
     skip_brew: false,
     dry_run: false,
     yes: false,
-    only: nil
+    only: []
   }.freeze
 
   attr_reader :skip_brew,
@@ -17,12 +17,13 @@ class SetupOptions
   def initialize(**values)
     validate_keys(values)
     options = DEFAULTS.merge(values)
-    validate_phase(options.fetch(:only))
+    selected = Array(options.fetch(:only))
+    validate_phases(selected)
 
     @skip_brew = options.fetch(:skip_brew)
     @dry_run = options.fetch(:dry_run)
     @yes = options.fetch(:yes)
-    @only = options.fetch(:only)
+    @only = selected.uniq.freeze
 
     freeze
   end
@@ -36,9 +37,10 @@ class SetupOptions
     raise ArgumentError, "Unknown setup options: #{unknown.join(", ")}"
   end
 
-  def validate_phase(phase)
-    return if phase.nil? || SUPPORTED_PHASES.include?(phase)
+  def validate_phases(phases)
+    unsupported = phases - SUPPORTED_PHASES
+    return if unsupported.empty?
 
-    raise ArgumentError, "Unsupported phase: #{phase}"
+    raise ArgumentError, "Unsupported phase: #{unsupported.first}"
   end
 end

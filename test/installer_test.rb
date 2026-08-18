@@ -669,7 +669,7 @@ class InstallerTest < DotfilesTestCase
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
     command_runner = successful_full_command_runner({"brew" => "/opt/homebrew/bin/brew"})
-    prompt = TestPrompt.new { raise "default setup prompted" }
+    prompt = TestPrompt.new(true)
 
     status = build_installer(
       options: {skip_brew: false},
@@ -761,6 +761,7 @@ class InstallerTest < DotfilesTestCase
     )
 
     runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless options[:only]
+    runtime = {prompt: TestPrompt.new}.merge(runtime)
 
     Installer.new(
       options: SetupOptions.new(skip_brew: true, **options),

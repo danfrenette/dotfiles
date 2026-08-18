@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUBY_VERSION="$(tr -d '[:space:]' < "$ROOT/.ruby-version")"
 DRY_RUN=false
 HELP=false
-ONLY_PHASE=""
+ONLY_PHASES=()
 
 print_usage() {
   cat <<'USAGE'
@@ -13,7 +13,6 @@ Usage: install.rb [options]
         --dry-run                    Print the plan without applying it
         --yes                        Apply the plan without confirmation
         --only PHASE                 Run only homebrew, opencode2, mappings, neovim, or skills
-        --skip-brew                  Skip the Homebrew phase
     -h, --help                       Show this help
 USAGE
 }
@@ -31,17 +30,17 @@ validate_arguments() {
         DRY_RUN=true
         shift
         ;;
-      --yes|--skip-brew)
+      --yes)
         shift
         ;;
       --only)
         [[ $# -gt 1 ]] || usage_error "missing argument: --only"
-        ONLY_PHASE="$2"
+        ONLY_PHASES+=("$2")
         shift 2
         ;;
       --only=*)
-        ONLY_PHASE="${1#--only=}"
-        [[ -n "$ONLY_PHASE" ]] || usage_error "missing argument: --only"
+        ONLY_PHASES+=("${1#--only=}")
+        [[ -n "${ONLY_PHASES[-1]}" ]] || usage_error "missing argument: --only"
         shift
         ;;
       -h|--help)
@@ -61,9 +60,12 @@ validate_arguments() {
     print_usage
     exit 0
   fi
-  if [[ -n "$ONLY_PHASE" && "$ONLY_PHASE" != "homebrew" && "$ONLY_PHASE" != "opencode2" && "$ONLY_PHASE" != "mappings" && "$ONLY_PHASE" != "neovim" && "$ONLY_PHASE" != "skills" ]]; then
-    usage_error "Unsupported phase: $ONLY_PHASE"
-  fi
+  for phase in "${ONLY_PHASES[@]:-}"; do
+    [[ -n "$phase" ]] || continue
+    if [[ "$phase" != "homebrew" && "$phase" != "opencode2" && "$phase" != "mappings" && "$phase" != "neovim" && "$phase" != "skills" ]]; then
+      usage_error "Unsupported phase: $phase"
+    fi
+  done
 }
 
 validate_arguments "$@"

@@ -14,8 +14,7 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--dry-run"
     assert_includes stdout, "--yes"
     assert_includes stdout, "--only"
-    assert_includes stdout, "homebrew, opencode2, mappings, neovim, or skills"
-    assert_includes stdout, "--skip-brew"
+    assert_includes stdout, "Run only the named phase (repeatable)"
     assert_empty stderr
   end
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class TestPrompt
-  def initialize(answer = nil, &behavior)
+  def initialize(answer = true, &behavior)
     @answer = answer
     @behavior = behavior
   end
@@ -10,6 +10,10 @@ class TestPrompt
     return behavior.call if behavior
 
     answer
+  end
+
+  def select(phases)
+    phases
   end
 
   private

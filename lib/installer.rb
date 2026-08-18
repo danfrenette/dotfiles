@@ -31,13 +31,20 @@ class Installer
   end
 
   def install
-    return install_homebrew if options.only == :homebrew
-    return install_mappings if options.only == :mappings
-    return install_neovim if options.only == :neovim
-    return install_opencode2 if options.only == :opencode2
-    return install_skills_phase if options.only == :skills
+    selected = selected_phases
+    unless options.only.any?
+      (SetupOptions::SUPPORTED_PHASES - selected).each do |phase|
+        reporter.report_action(:skipped, message: "#{phase} phase not selected")
+      end
+    end
+    return 0 if selected.empty?
+    return install_homebrew if selected == [:homebrew]
+    return install_mappings if selected == [:mappings]
+    return install_neovim if selected == [:neovim]
+    return install_opencode2 if selected == [:opencode2]
+    return install_skills_phase if selected == [:skills]
 
-    install_full_setup
+    install_full_setup(selected)
   rescue ArgumentError, Phases::Homebrew::Error, Phases::Neovim::Error, Phases::OpenCode2::Error, Phases::Skills::Error, SystemCallError => error
     report_failure(error)
   end
@@ -115,18 +122,22 @@ class Installer
     0
   end
 
-  def install_full_setup
-    homebrew_plan = homebrew.plan unless options.skip_brew
-    opencode2_plan = begin
-      opencode2.plan
-    rescue Phases::OpenCode2::Error, SystemCallError => error
-      reporter.report_warning(error.message)
-      nil
+  def install_full_setup(selected)
+    homebrew_plan = homebrew.plan if selected.include?(:homebrew) && !options.skip_brew
+    opencode2_plan = if selected.include?(:opencode2)
+      begin
+        opencode2.plan
+      rescue Phases::OpenCode2::Error, SystemCallError => error
+        reporter.report_warning(error.message)
+        nil
+      end
     end
-    mapping_plan = plan_mappings
-    neovim_plan = neovim.plan(available_targets: planned_nvim_configuration_targets(mapping_plan))
-    skills_plan = skills.plan
-    opencode2_failed = opencode2_plan.nil?
+    mapping_plan = plan_mappings if selected.include?(:mappings)
+    neovim_plan = neovim.plan(available_targets: neovim_targets(mapping_plan, selected)) if selected.include?(:neovim)
+    skills_plan = skills.plan if selected.include?(:skills)
+    opencode2_failed = selected.include?(:opencode2) && opencode2_plan.nil?
+
+    return 0 unless options.dry_run || options.yes || runtime.prompt.confirm?
 
     unless options.dry_run
       homebrew.apply(homebrew_plan) if homebrew_plan
@@ -138,7 +149,7 @@ class Installer
           opencode2_failed = true
         end
       end
-      linker.apply(mapping_plan)
+      linker.apply(mapping_plan) if mapping_plan
     end
 
     post_install(skills_plan, neovim_plan)
@@ -152,6 +163,13 @@ class Installer
 
   def confirmed?(plan)
     plan.empty? || options.yes || runtime.prompt.confirm?
+  end
+
+  def selected_phases
+    return options.only if options.only.any?
+    return SetupOptions::SUPPORTED_PHASES if options.yes
+
+    runtime.prompt.select(SetupOptions::SUPPORTED_PHASES)
   end
 
   def report_failure(error)
@@ -174,6 +192,12 @@ class Installer
 
     neovim.apply(neovim_plan) unless options.dry_run
     report_completion
+  end
+
+  def neovim_targets(mapping_plan, selected)
+    return current_nvim_configuration_targets unless selected.include?(:mappings)
+
+    planned_nvim_configuration_targets(mapping_plan)
   end
 
   def current_nvim_configuration_targets

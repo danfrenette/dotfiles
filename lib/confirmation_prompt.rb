@@ -12,6 +12,14 @@ class ConfirmationPrompt
     !answer.nil? && %w[y yes].include?(answer.strip.downcase)
   end
 
+  def select(phases)
+    phases.select do |phase|
+      output.print "Run #{phase}? [Y/n] "
+      answer = input.gets
+      answer.nil? || !%w[n no].include?(answer.strip.downcase)
+    end
+  end
+
   private
 
   attr_reader :input, :output
