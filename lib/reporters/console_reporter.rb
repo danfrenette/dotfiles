@@ -30,7 +30,8 @@ module Reporters
       dependencies: "[DEPS]",
       service: "[SERVICE]",
       workflow: "[READY]",
-      neovim: "[NVIM]"
+      neovim: "[NVIM]",
+      neovim_complete: "[OK]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -129,6 +130,8 @@ module Reporters
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
       when :neovim
         "#{meta[:command].join(" ")} (configuration: #{meta[:configuration_targets].join(", ")})"
+      when :neovim_complete
+        "Neovim plugins installed"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
       end

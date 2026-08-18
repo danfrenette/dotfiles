@@ -482,6 +482,24 @@ class InstallerTest < DotfilesTestCase
     assert_equal ["Installing Neovim plugins"], @reporter.phases
   end
 
+  def test_neovim_only_accepts_current_copied_configuration
+    source = create_file("dotfiles/nvim/init.lua", "require('plugins')")
+    target = create_file("home/.config/nvim/init.lua", "require('plugins')")
+    runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
+
+    status = build_installer(
+      options: {only: :neovim, yes: true},
+      config: {
+        mappings: [mapping(source, target, operation: :copy)],
+        nvim_configuration_targets: [target]
+      },
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 0, status
+    assert_equal [["/fake/nvim", "--headless", "+PlugInstall", "+qa"]], runner.calls
+  end
+
   def test_opencode2_dry_run_skips_confirmation_execution_and_mutation
     home = tmp_path("home")
     global_dir = File.join(home, ".local", "share", "pnpm", "global")

@@ -61,10 +61,29 @@ class ConfigTest < DotfilesTestCase
     assert_equal [
       @config.home_path(".config", "nvim", "init.lua"),
       @config.home_path(".config", "nvim", "lua", "options.lua"),
-      @config.home_path(".config", "nvim", "lua", "plugins.lua"),
       @config.home_path(".config", "nvim", "lua", "keymaps.lua"),
+      @config.home_path(".config", "nvim", "lua", "plugins.lua"),
       @config.home_path(".config", "nvim", "lua", "autocmds.lua")
     ], @config.nvim_configuration_targets
+  end
+
+  def test_nvim_configuration_targets_are_derived_from_the_mapping_manifest
+    repository_root = create_dir("repository")
+    home_root = create_dir("home")
+    create_file("repository/config/nvim/init.lua")
+    manifest_path = create_file("nvim-mappings.yml", <<~YAML)
+      mappings:
+        - operation: copy
+          source: config/nvim/init.lua
+          target: .config/nvim/custom.lua
+    YAML
+    config = Config.new(
+      repository_root: repository_root,
+      home_root: home_root,
+      mappings_path: manifest_path
+    )
+
+    assert_equal [File.join(home_root, ".config/nvim/custom.lua")], config.nvim_configuration_targets
   end
 
   def test_mappings_include_ghostty_config

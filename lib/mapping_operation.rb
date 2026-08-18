@@ -36,6 +36,10 @@ MappingOperation = Data.define(:type, :source, :target, :path) do
   def copy?
     type == :create_copy
   end
+
+  def establishes_target?
+    [:create_symlink, :create_copy, :unchanged, :unchanged_copy].include?(type)
+  end
 end
 
 class << MappingOperation

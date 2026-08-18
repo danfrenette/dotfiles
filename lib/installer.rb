@@ -28,11 +28,6 @@ class Installer
       command_runner: runtime.command_runner,
       reporter: runtime.reporter
     )
-    @neovim = Phases::Neovim.new(
-      configuration_targets: config.nvim_configuration_targets,
-      command_runner: runtime.command_runner,
-      reporter: runtime.reporter
-    )
   end
 
   def install
@@ -49,10 +44,18 @@ class Installer
 
   private
 
-  attr_reader :options, :config, :runtime, :linker, :homebrew, :neovim, :opencode2
+  attr_reader :options, :config, :runtime, :linker, :homebrew, :opencode2
 
   def reporter
     runtime.reporter
+  end
+
+  def neovim
+    @neovim ||= Phases::Neovim.new(
+      configuration_targets: config.nvim_configuration_targets,
+      command_runner: runtime.command_runner,
+      reporter: reporter
+    )
   end
 
   def install_skills_only
@@ -194,24 +197,11 @@ class Installer
   end
 
   def current_nvim_configuration_targets
-    config.nvim_configuration_targets.select do |target|
-      mapping = config.mappings.find { |candidate| candidate.target == target }
-      mapped_target?(mapping)
-    end
+    config.nvim_configuration_targets & linker.current_mapping_targets(config.mappings)
   end
 
   def planned_nvim_configuration_targets(mapping_plan)
-    config.nvim_configuration_targets.select do |target|
-      mapping_plan.any? do |operation|
-        operation.target == target && [:create_symlink, :create_copy, :unchanged, :unchanged_copy].include?(operation.type)
-      end
-    end
-  end
-
-  def mapped_target?(mapping)
-    mapping && File.symlink?(mapping.target) && File.realpath(mapping.target) == File.realpath(mapping.source)
-  rescue Errno::ENOENT, Errno::ELOOP, Errno::ENOTDIR
-    false
+    config.nvim_configuration_targets & linker.established_mapping_targets(mapping_plan)
   end
 
   def report_completion

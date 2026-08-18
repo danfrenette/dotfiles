@@ -30,9 +30,8 @@ class Config
   end
 
   def nvim_configuration_targets
-    %w[init.lua lua/options.lua lua/plugins.lua lua/keymaps.lua lua/autocmds.lua].map do |path|
-      home_path(".config", "nvim", path)
-    end
+    source_root = dotfiles_path("config", "nvim")
+    mappings.filter_map { |mapping| mapping.target if mapping.source.start_with?("#{source_root}/") }
   end
 
   def brewfile_path

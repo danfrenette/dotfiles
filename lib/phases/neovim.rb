@@ -32,6 +32,8 @@ module Phases
       result = command_runner.run(*plan.command)
       raise Error, "Neovim plugin installation could not start" if result.nil?
       raise Error, "Neovim plugin installation exited with a nonzero status" unless result
+
+      reporter.report_action(:neovim_complete, command: plan.command)
     end
 
     private

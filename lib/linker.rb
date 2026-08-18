@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require_relative "copy_comparison"
 require_relative "mapping_manifest"
 require_relative "mapping_plan_applier"
 require_relative "mapping_planner"
@@ -48,6 +49,20 @@ class Linker
 
   def correctly_linked?(target, source)
     already_linked?(target, source)
+  end
+
+  def mapping_current?(mapping)
+    return already_linked?(mapping.target, mapping.source) if mapping.link?
+
+    CopyComparison.new(mapping.source, mapping.target).match?
+  end
+
+  def current_mapping_targets(mappings)
+    mappings.filter_map { |mapping| mapping.target if mapping_current?(mapping) }
+  end
+
+  def established_mapping_targets(plan)
+    plan.filter_map { |operation| operation.target if operation.establishes_target? }
   end
 
   private

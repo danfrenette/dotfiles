@@ -35,15 +35,18 @@ class NeovimPhaseTest < DotfilesTestCase
 
   def test_apply_uses_the_exact_command_without_redirection_and_surfaces_failures
     [true, false, nil].each do |result|
+      @reporter.clear
       runner = TestCommandRunner.new(result: result, executables: {"nvim" => "/fake/nvim"})
       phase = build_phase(command_runner: runner)
       plan = phase.plan(available_targets: @targets)
 
       if result
         phase.apply(plan)
+        assert_equal :neovim_complete, @reporter.actions.last[:type]
       else
         error = assert_raises(Phases::Neovim::Error) { phase.apply(plan) }
         assert_equal(result.nil? ? "Neovim plugin installation could not start" : "Neovim plugin installation exited with a nonzero status", error.message)
+        refute_includes @reporter.action_types, :neovim_complete
       end
 
       assert_equal [["/fake/nvim", "--headless", "+PlugInstall", "+qa"]], runner.calls
