@@ -5,6 +5,8 @@ require "phases/neovim"
 require "reporters/test_reporter"
 
 class NeovimPhaseTest < DotfilesTestCase
+  Availability = Struct.new(:targets)
+
   def setup
     super
     @targets = [tmp_path("home/.config/nvim/init.lua"), tmp_path("home/.config/nvim/lua/options.lua")]
@@ -14,7 +16,7 @@ class NeovimPhaseTest < DotfilesTestCase
   def test_plan_reports_absolute_executable_configuration_and_exact_command
     phase = build_phase(executables: {"nvim" => "/fake/nvim"})
 
-    plan = phase.plan(available_targets: @targets)
+    plan = phase.prepare.plan
 
     assert_equal "/fake/nvim", plan.executable
     assert_equal @targets, plan.configuration_targets
@@ -24,11 +26,11 @@ class NeovimPhaseTest < DotfilesTestCase
   end
 
   def test_missing_executable_and_configuration_fail_during_planning
-    error = assert_raises(Phases::Neovim::Error) { build_phase.plan(available_targets: @targets) }
+    error = assert_raises(Phases::Neovim::Error) { build_phase.prepare }
     assert_equal "Neovim not found; install nvim before running this phase", error.message
 
     error = assert_raises(Phases::Neovim::Error) do
-      build_phase(executables: {"nvim" => "/fake/nvim"}).plan(available_targets: [@targets.first])
+      build_phase(executables: {"nvim" => "/fake/nvim"}, available_targets: [@targets.first]).prepare
     end
     assert_equal "Neovim configuration is not available: #{@targets.last}", error.message
   end
@@ -38,13 +40,13 @@ class NeovimPhaseTest < DotfilesTestCase
       @reporter.clear
       runner = TestCommandRunner.new(result: result, executables: {"nvim" => "/fake/nvim"})
       phase = build_phase(command_runner: runner)
-      plan = phase.plan(available_targets: @targets)
+      preparation = phase.prepare
 
       if result
-        phase.apply(plan)
+        preparation.apply
         assert_equal :neovim_complete, @reporter.actions.last[:type]
       else
-        error = assert_raises(Phases::Neovim::Error) { phase.apply(plan) }
+        error = assert_raises(Phases::Neovim::Error) { preparation.apply }
         assert_equal(result.nil? ? "Neovim plugin installation could not start" : "Neovim plugin installation exited with a nonzero status", error.message)
         refute_includes @reporter.action_types, :neovim_complete
       end
@@ -55,8 +57,13 @@ class NeovimPhaseTest < DotfilesTestCase
 
   private
 
-  def build_phase(executables: {}, command_runner: nil)
+  def build_phase(executables: {}, command_runner: nil, available_targets: @targets)
     runner = command_runner || TestCommandRunner.new(executables: executables)
-    Phases::Neovim.new(load_configuration_targets: -> { @targets }, command_runner: runner, reporter: @reporter)
+    Phases::Neovim.new(
+      load_configuration_targets: -> { @targets },
+      availability: Availability.new(available_targets),
+      command_runner: runner,
+      reporter: @reporter
+    )
   end
 end

@@ -35,8 +35,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
       reporter: reporter
     )
 
-    plan = phase.plan
-    phase.apply(plan)
+    phase.prepare.apply
 
     assert_equal ["Installing OpenCode2"], reporter.phases
     assert_equal [
@@ -58,7 +57,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
       reporter: Reporters::TestReporter.new
     )
 
-    plan = phase.plan
+    plan = phase.prepare.plan
 
     assert_instance_of Phases::OpenCode2::Plan, plan
     assert_instance_of Phases::OpenCode2::CLIInstallation::Plan, plan.cli

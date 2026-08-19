@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require_relative "homebrew/plan"
+require_relative "../prepared_phase"
+require_relative "error"
 
 module Phases
   class Homebrew
+    NAME = :homebrew
     CANDIDATES = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].freeze
 
-    class Error < StandardError; end
+    class Error < Phases::Error; end
 
     def initialize(brewfile_path:, command_runner:, reporter:)
       @brewfile_path = brewfile_path
@@ -14,7 +17,20 @@ module Phases
       @reporter = reporter
     end
 
-    def plan
+    def name
+      NAME
+    end
+
+    def prepare
+      plan = build_plan
+      PreparedPhase.new(plan) { apply(plan) }
+    end
+
+    private
+
+    attr_reader :brewfile_path, :command_runner, :reporter
+
+    def build_plan
       reporter.report_phase("Installing Homebrew packages")
 
       brew = command_runner.find_executable("brew", candidates: CANDIDATES)
@@ -32,10 +48,6 @@ module Phases
       raise Error, "brew bundle could not start" if result.nil?
       raise Error, "brew bundle exited with a nonzero status" unless result
     end
-
-    private
-
-    attr_reader :brewfile_path, :command_runner, :reporter
 
     def validate_brewfile
       raise Error, "Brewfile not found: #{brewfile_path}" unless File.exist?(brewfile_path)

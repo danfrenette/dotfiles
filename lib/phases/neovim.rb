@@ -1,24 +1,42 @@
 # frozen_string_literal: true
 
 require_relative "neovim/plan"
+require_relative "../prepared_phase"
+require_relative "error"
 
 module Phases
   class Neovim
-    class Error < StandardError; end
+    NAME = :neovim
 
-    def initialize(load_configuration_targets:, command_runner:, reporter:)
+    class Error < Phases::Error; end
+
+    def initialize(load_configuration_targets:, availability:, command_runner:, reporter:)
       @load_configuration_targets = load_configuration_targets
+      @availability = availability
       @command_runner = command_runner
       @reporter = reporter
     end
 
-    def plan(available_targets:)
+    def name
+      NAME
+    end
+
+    def prepare
+      plan = build_plan
+      PreparedPhase.new(plan) { apply(plan) }
+    end
+
+    private
+
+    attr_reader :load_configuration_targets, :availability, :command_runner, :reporter
+
+    def build_plan
       reporter.report_phase("Installing Neovim plugins")
 
       executable = command_runner.find_executable("nvim")
       raise Error, "Neovim not found; install nvim before running this phase" unless executable
 
-      missing_targets = configuration_targets - available_targets
+      missing_targets = configuration_targets - availability.targets
       unless missing_targets.empty?
         raise Error, "Neovim configuration is not available: #{missing_targets.join(", ")}"
       end
@@ -35,10 +53,6 @@ module Phases
 
       reporter.report_action(:neovim_complete, command: plan.command)
     end
-
-    private
-
-    attr_reader :load_configuration_targets, :command_runner, :reporter
 
     def configuration_targets
       @configuration_targets ||= load_configuration_targets.call

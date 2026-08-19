@@ -7,8 +7,10 @@ class MappingsTest < DotfilesTestCase
   def setup
     super
     @loaded_mappings = []
+    load_mappings = -> { @loaded_mappings }
     @phase = Phases::Mappings.new(
-      load_mappings: -> { @loaded_mappings },
+      load_mappings: load_mappings,
+      availability: Phases::Mappings::ConfigurationAvailability.new(load_mappings: load_mappings),
       reporter: Reporters::TestReporter.new
     )
   end
@@ -19,7 +21,7 @@ class MappingsTest < DotfilesTestCase
     FileUtils.mkdir_p(File.dirname(target))
     File.symlink(File.join("..", "source", "config"), target)
 
-    mapping_plan = plan([mapping(source, target)])
+    mapping_plan = prepare([mapping(source, target)]).plan
 
     assert_equal [:unchanged], mapping_plan.map(&:type)
   end
@@ -30,9 +32,9 @@ class MappingsTest < DotfilesTestCase
     target = tmp_path("target/script")
     copy = mapping(source, target, operation: :copy)
 
-    first_plan = plan([copy])
-    @phase.apply(first_plan)
-    second_plan = plan([copy])
+    first_preparation = prepare([copy])
+    first_preparation.apply
+    second_plan = prepare([copy]).plan
 
     assert_equal "puts :ok", File.read(target)
     assert_equal 0o751, File.stat(target).mode & 0o777
@@ -50,7 +52,7 @@ class MappingsTest < DotfilesTestCase
     File.symlink("missing", File.join(nested, "broken"))
     target = tmp_path("target/tree")
 
-    @phase.apply(plan([mapping(source, target, operation: :copy)]))
+    prepare([mapping(source, target, operation: :copy)]).apply
 
     assert_equal 0o750, File.stat(File.join(target, "nested")).mode & 0o777
     assert_equal 0o640, File.stat(File.join(target, "nested", "file")).mode & 0o777
@@ -64,7 +66,7 @@ class MappingsTest < DotfilesTestCase
     File.symlink("missing", source)
     target = tmp_path("target/root-link")
 
-    @phase.apply(plan([mapping(source, target, operation: :copy)]))
+    prepare([mapping(source, target, operation: :copy)]).apply
 
     assert File.symlink?(target)
     assert_equal "missing", File.readlink(target)
@@ -75,7 +77,7 @@ class MappingsTest < DotfilesTestCase
     target = create_file("target/config", "old")
     backup = create_file("target/config.backup", "older")
 
-    mapping_plan = plan([mapping(source, target, operation: :copy)])
+    mapping_plan = prepare([mapping(source, target, operation: :copy)]).plan
 
     assert_equal [:remove, :move, :create_copy], mapping_plan.map(&:type)
     assert_equal backup, mapping_plan.first.path
@@ -103,11 +105,11 @@ class MappingsTest < DotfilesTestCase
       File.symlink("file", File.join(source, "link"))
       target = tmp_path("target/#{name}")
       copy = mapping(source, target, operation: :copy)
-      @phase.apply(plan([copy]))
+      prepare([copy]).apply
 
       mutate.call(target)
 
-      assert_includes plan([copy]).map(&:type), :create_copy, "#{name} change was not detected"
+      assert_includes prepare([copy]).plan.map(&:type), :create_copy, "#{name} change was not detected"
     end
   end
 
@@ -117,13 +119,13 @@ class MappingsTest < DotfilesTestCase
     first_target = create_file("home/first", "old first")
     first_backup = create_file("home/first.backup", "older first")
     second_target = tmp_path("new-home/nested/second")
-    mapping_plan = plan([
+    preparation = prepare([
       mapping(first_source, first_target, operation: :copy),
       mapping(second_source, second_target, operation: :copy)
     ])
     FileUtils.rm(second_source)
 
-    assert_raises(Errno::ENOENT) { @phase.apply(mapping_plan) }
+    assert_raises(Errno::ENOENT) { preparation.apply }
 
     assert_equal "old first", File.read(first_target)
     assert_equal "older first", File.read(first_backup)
@@ -134,8 +136,8 @@ class MappingsTest < DotfilesTestCase
 
   private
 
-  def plan(mappings)
+  def prepare(mappings)
     @loaded_mappings = mappings
-    @phase.plan
+    @phase.prepare
   end
 end

@@ -738,21 +738,24 @@ class InstallerTest < DotfilesTestCase
   private
 
   def build_manifest_installer(repository_root, home_root, manifest_path)
-    Installer.build(
+    config = Config.new(
+      repository_root: repository_root,
+      home_root: home_root,
+      mappings_path: manifest_path
+    )
+    runtime = SetupRuntime.new(reporter: @reporter)
+
+    Installer.new(
       options: SetupOptions.new(only: :mappings, yes: true),
-      config: Config.new(
-        repository_root: repository_root,
-        home_root: home_root,
-        mappings_path: manifest_path
-      ),
-      runtime: SetupRuntime.new(reporter: @reporter)
+      prompt: runtime.prompt,
+      reporter: runtime.reporter,
+      catalog: PhaseCatalog.build(config: config, runtime: runtime)
     )
   end
 
   def build_installer(options: {}, config: {}, runtime: {})
     skip_brew = options.fetch(:skip_brew, true)
     options.delete(:skip_brew)
-    options[:only] = SetupOptions::SUPPORTED_PHASES - [:homebrew] if skip_brew && !options[:only]
     setup_config = TestConfig.new(
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
@@ -765,11 +768,15 @@ class InstallerTest < DotfilesTestCase
 
     runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless runtime[:command_runner]
     runtime = {prompt: TestPrompt.new}.merge(runtime)
+    setup_runtime = SetupRuntime.new(reporter: @reporter, **runtime)
+    catalog = PhaseCatalog.build(config: setup_config, runtime: setup_runtime)
+    options[:only] = catalog.names - [:homebrew] if skip_brew && !options[:only]
 
-    Installer.build(
+    Installer.new(
       options: SetupOptions.new(**options),
-      config: setup_config,
-      runtime: SetupRuntime.new(reporter: @reporter, **runtime)
+      prompt: setup_runtime.prompt,
+      reporter: setup_runtime.reporter,
+      catalog: catalog
     )
   end
 

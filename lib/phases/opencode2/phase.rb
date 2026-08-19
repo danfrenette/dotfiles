@@ -3,10 +3,13 @@
 require_relative "cli_installation"
 require_relative "fork_workspace"
 require_relative "plan"
+require_relative "../../prepared_phase"
 
 module Phases
   module OpenCode2
     class Phase
+      NAME = :opencode2
+
       def initialize(global_dir:, bin_dir:, checkout:, package_manager_candidates:, command_runner:, reporter:)
         @cli_installation = CLIInstallation.new(
           global_dir: global_dir,
@@ -18,7 +21,20 @@ module Phases
         @reporter = reporter
       end
 
-      def plan
+      def name
+        NAME
+      end
+
+      def prepare
+        plan = build_plan
+        PreparedPhase.new(plan) { apply(plan) }
+      end
+
+      private
+
+      attr_reader :cli_installation, :fork_workspace, :reporter
+
+      def build_plan
         reporter.report_phase("Installing OpenCode2")
 
         Plan.new(cli: cli_installation.plan, fork: fork_workspace.plan).tap do |plan|
@@ -30,10 +46,6 @@ module Phases
         cli_installation.apply(plan.cli)
         fork_workspace.apply(plan.fork)
       end
-
-      private
-
-      attr_reader :cli_installation, :fork_workspace, :reporter
     end
   end
 end

@@ -13,7 +13,7 @@ class SkillsPhaseTest < DotfilesTestCase
   def test_plan_reports_the_pinned_global_opencode_handoff
     phase = build_phase(executables: {"pnpm" => "/fake/pnpm"})
 
-    plan = phase.plan
+    plan = phase.prepare.plan
 
     assert_equal ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"], plan.command
     assert_equal :skills, @reporter.actions.last[:type]
@@ -21,7 +21,7 @@ class SkillsPhaseTest < DotfilesTestCase
   end
 
   def test_missing_package_manager_fails_during_planning
-    error = assert_raises(Phases::Skills::Error) { build_phase.plan }
+    error = assert_raises(Phases::Skills::Error) { build_phase.prepare }
 
     assert_equal "pnpm not found; install pnpm before running the skills phase", error.message
   end
@@ -31,7 +31,7 @@ class SkillsPhaseTest < DotfilesTestCase
       runner = TestCommandRunner.new(result: result, executables: {"pnpm" => "/fake/pnpm"})
       phase = build_phase(command_runner: runner)
 
-      error = assert_raises(Phases::Skills::Error) { phase.apply(phase.plan) }
+      error = assert_raises(Phases::Skills::Error) { phase.prepare.apply }
 
       assert_equal(result.nil? ? "skills installation could not start" : "skills installation exited with a nonzero status", error.message)
     end
