@@ -6,8 +6,8 @@ module Phases
   class Neovim
     class Error < StandardError; end
 
-    def initialize(configuration_targets:, command_runner:, reporter:)
-      @configuration_targets = configuration_targets
+    def initialize(load_configuration_targets:, command_runner:, reporter:)
+      @load_configuration_targets = load_configuration_targets
       @command_runner = command_runner
       @reporter = reporter
     end
@@ -38,6 +38,10 @@ module Phases
 
     private
 
-    attr_reader :configuration_targets, :command_runner, :reporter
+    attr_reader :load_configuration_targets, :command_runner, :reporter
+
+    def configuration_targets
+      @configuration_targets ||= load_configuration_targets.call
+    end
   end
 end

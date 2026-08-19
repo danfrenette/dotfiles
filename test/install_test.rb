@@ -14,7 +14,7 @@ class InstallTest < DotfilesTestCase
     assert_includes stdout, "--dry-run"
     assert_includes stdout, "--yes"
     assert_includes stdout, "--only"
-    assert_includes stdout, "Run only the named phase (repeatable)"
+    assert_includes stdout, "Run only comma-separated phases"
     assert_empty stderr
   end
 
@@ -74,6 +74,38 @@ class InstallTest < DotfilesTestCase
     assert_empty stdout
     assert_includes stderr, "Unsupported phase: brew"
     assert_includes stderr, "Usage: install.rb [options]"
+  end
+
+  def test_comma_separated_phases_are_accepted
+    home = create_dir("home")
+    bin = create_dir("bin")
+    create_executable(bin, "pnpm")
+
+    stdout, stderr, status = run_install("--only", "mappings,skills", "--dry-run", home: home, path: bin)
+
+    assert status.success?, stderr
+    assert_includes stdout, "Linking dotfiles"
+    assert_includes stdout, "Installing skills"
+    refute_includes stdout, "Installing Neovim plugins"
+    assert_empty stderr
+  end
+
+  def test_repeated_only_exits_with_usage_error
+    stdout, stderr, status = run_install("--only", "mappings", "--only", "skills")
+
+    assert_equal 64, status.exitstatus
+    assert_empty stdout
+    assert_includes stderr, "--only may only be specified once"
+  end
+
+  def test_only_rejects_empty_and_duplicate_phases
+    ["mappings,,skills", "mappings,mappings"].each do |selection|
+      stdout, stderr, status = run_install("--only", selection)
+
+      assert_equal 64, status.exitstatus
+      assert_empty stdout
+      assert_match(/empty phase|Duplicate phase/, stderr)
+    end
   end
 
   def test_declined_confirmation_exits_successfully_without_changes

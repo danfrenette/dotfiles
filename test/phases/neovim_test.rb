@@ -57,6 +57,6 @@ class NeovimPhaseTest < DotfilesTestCase
 
   def build_phase(executables: {}, command_runner: nil)
     runner = command_runner || TestCommandRunner.new(executables: executables)
-    Phases::Neovim.new(configuration_targets: @targets, command_runner: runner, reporter: @reporter)
+    Phases::Neovim.new(load_configuration_targets: -> { @targets }, command_runner: runner, reporter: @reporter)
   end
 end

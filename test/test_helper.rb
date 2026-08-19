@@ -8,8 +8,8 @@ require "yaml"
 
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
-require "linker"
 require "config"
+require "phases/mappings"
 require "support/assertions"
 require "support/test_config"
 require "support/test_prompt"

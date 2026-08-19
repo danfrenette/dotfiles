@@ -13,7 +13,7 @@ class InstallerTest < DotfilesTestCase
   def test_full_install_runs_expected_phases_and_completion
     build_installer(config: {local_skills: ["engineering/tdd"]}).install
 
-    assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing Neovim plugins", "Installing skills"], @reporter.phases
+    assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing skills", "Installing Neovim plugins"], @reporter.phases
     assert @reporter.completion_reported
     assert_includes @reporter.action_types, :skills
   end
@@ -34,6 +34,7 @@ class InstallerTest < DotfilesTestCase
       {type: :create_symlink, meta: {source: source, target: target}}
     ], @reporter.actions.first(2)
     assert_symlink target, to: source
+    assert @reporter.completion_reported
   end
 
   def test_declined_confirmation_cancels_without_changes
@@ -704,7 +705,7 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 0, status
     assert_equal [
-      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing Neovim plugins", "Installing skills"
+      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing skills", "Installing Neovim plugins"
     ], @reporter.phases
     assert_empty command_runner.calls
     refute File.exist?(target)
@@ -737,7 +738,7 @@ class InstallerTest < DotfilesTestCase
   private
 
   def build_manifest_installer(repository_root, home_root, manifest_path)
-    Installer.new(
+    Installer.build(
       options: SetupOptions.new(only: :mappings, yes: true),
       config: Config.new(
         repository_root: repository_root,
@@ -765,7 +766,7 @@ class InstallerTest < DotfilesTestCase
     runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless runtime[:command_runner]
     runtime = {prompt: TestPrompt.new}.merge(runtime)
 
-    Installer.new(
+    Installer.build(
       options: SetupOptions.new(**options),
       config: setup_config,
       runtime: SetupRuntime.new(reporter: @reporter, **runtime)

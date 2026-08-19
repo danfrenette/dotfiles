@@ -22,7 +22,7 @@ class SetupCLI
     end
 
     validate_arguments
-    Installer.new(options: SetupOptions.new(**options)).install
+    Installer.build(options: SetupOptions.new(**options)).install
   rescue OptionParser::ParseError, ArgumentError => parse_error
     error.puts parse_error.message
     error.puts parser
@@ -38,7 +38,14 @@ class SetupCLI
       parser.banner = "Usage: install.rb [options]"
       parser.on("--dry-run", "Print the plan without applying it") { options[:dry_run] = true }
       parser.on("--yes", "Apply the plan without confirmation") { options[:yes] = true }
-      parser.on("--only PHASE", "Run only the named phase (repeatable)") { |phase| (options[:only] ||= []) << phase.to_sym }
+      parser.on("--only PHASES", "Run only comma-separated phases") do |value|
+        raise OptionParser::InvalidArgument, "--only may only be specified once" if options.key?(:only)
+
+        phases = value.split(",", -1).map(&:strip)
+        raise OptionParser::InvalidArgument, "--only contains an empty phase" if phases.any?(&:empty?)
+
+        options[:only] = phases.map(&:to_sym)
+      end
       parser.on("-h", "--help", "Show this help") { @help = true }
     end
   end

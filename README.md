@@ -42,7 +42,7 @@ bundle install
 ./install.rb --dry-run
 
 # Select exact phases without interactive selection
-./install.rb --only mappings --only skills
+./install.rb --only mappings,skills
 ```
 
 ### Development
@@ -74,7 +74,7 @@ Run `./install.rb --only skills` to launch the pinned [skills CLI](https://githu
 
 ## Verification
 
-Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb --dry-run`, and `bundle exec rake` to verify the setup safely. The default installer lets you select from Homebrew, OpenCode2, mappings, skills, and Neovim; repeat `--only` to avoid interactive selection. Do not use `--yes` unless you intend to apply every selected phase.
+Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb --dry-run`, and `bundle exec rake` to verify the setup safely. The default installer lets you select from Homebrew, OpenCode2, mappings, skills, and Neovim; pass a comma-separated list to `--only` to avoid interactive selection. Do not use `--yes` unless you intend to apply every selected phase.
 
 ## Backup Behavior
 

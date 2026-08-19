@@ -17,10 +17,11 @@ class SetupOptions
     options = DEFAULTS.merge(values)
     selected = Array(options.fetch(:only))
     validate_phases(selected)
+    validate_unique_phases(selected)
 
     @dry_run = options.fetch(:dry_run)
     @yes = options.fetch(:yes)
-    @only = selected.uniq.freeze
+    @only = selected.freeze
 
     freeze
   end
@@ -39,5 +40,10 @@ class SetupOptions
     return if unsupported.empty?
 
     raise ArgumentError, "Unsupported phase: #{unsupported.first}"
+  end
+
+  def validate_unique_phases(phases)
+    duplicate = phases.find { |phase| phases.count(phase) > 1 }
+    raise ArgumentError, "Duplicate phase: #{duplicate}" if duplicate
   end
 end
