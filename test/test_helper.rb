@@ -14,6 +14,7 @@ require "support/assertions"
 require "support/test_config"
 require "support/test_prompt"
 require "support/test_command_runner"
+require "support/test_reporter"
 require "support/mapping_fixtures"
 require "support/opencode_fixtures"
 

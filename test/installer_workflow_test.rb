@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "installer"
-require "reporters/test_reporter"
 
 class InstallerWorkflowTest < DotfilesTestCase
   class Phase

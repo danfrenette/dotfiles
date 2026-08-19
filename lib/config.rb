@@ -4,7 +4,6 @@ require_relative "mapping_manifest"
 
 class Config
   DOTFILES_ROOT = File.expand_path("..", __dir__).freeze
-  MAPPINGS_PATH = File.join(DOTFILES_ROOT, "config", "mappings.yml").freeze
 
   def initialize(repository_root: DOTFILES_ROOT, home_root: Dir.home, mappings_path: nil)
     @repository_root = File.expand_path(repository_root)

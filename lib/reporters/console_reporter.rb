@@ -1,16 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "reporter"
+require_relative "../config"
 
 module Reporters
   class ConsoleReporter
-    include Reporter
-
     PREFIXES = {
-      linked: "[LINK]",
-      already_linked: "[OK]",
-      would_link: "[DRY]",
-      would_replace: "[DRY]",
       skipped: "[SKIP]",
       create_directory: "[MKDIR]",
       remove: "[REMOVE]",
@@ -82,21 +76,6 @@ module Reporters
 
     def format_action(type, meta)
       case type
-      when :linked
-        source = meta[:source] || meta[:name]
-        target = meta[:target]
-        "#{format_path(source)} -> #{target}"
-      when :already_linked
-        name = meta[:name] || format_path(meta[:source])
-        name.to_s
-      when :would_link
-        source = meta[:source] || meta[:name]
-        target = meta[:target]
-        "#{format_path(source)} would link to #{target}"
-      when :would_replace
-        source = meta[:source] || meta[:name]
-        target = meta[:target]
-        "#{format_path(source)} would back up #{target} -> #{target}.backup and replace"
       when :skipped
         meta[:message].to_s
       when :create_directory

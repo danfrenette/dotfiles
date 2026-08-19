@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "phases/neovim"
-require "reporters/test_reporter"
 
 class NeovimPhaseTest < DotfilesTestCase
   Availability = Struct.new(:targets)

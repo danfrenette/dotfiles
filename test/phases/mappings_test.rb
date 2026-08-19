@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "test_helper"
-require "reporters/test_reporter"
 
 class MappingsTest < DotfilesTestCase
   def setup

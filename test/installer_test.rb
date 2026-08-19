@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "installer"
-require "reporters/test_reporter"
 
 class InstallerTest < DotfilesTestCase
   def setup
@@ -11,7 +10,7 @@ class InstallerTest < DotfilesTestCase
   end
 
   def test_full_install_runs_expected_phases_and_completion
-    build_installer(config: {local_skills: ["engineering/tdd"]}).install
+    build_installer.install
 
     assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing skills", "Installing Neovim plugins"], @reporter.phases
     assert @reporter.completion_reported
@@ -273,7 +272,7 @@ class InstallerTest < DotfilesTestCase
 
     status = build_installer(
       options: {skip_brew: false, only: :mappings, yes: true},
-      config: {mappings: [mapping(source, target)], local_skills: ["engineering/tdd"]}
+      config: {mappings: [mapping(source, target)]}
     ).install
 
     assert_equal 0, status
@@ -422,8 +421,7 @@ class InstallerTest < DotfilesTestCase
       options: {only: :homebrew, yes: true},
       config: {
         mappings: [mapping(source, target)],
-        brewfile_path: brewfile,
-        local_skills: ["engineering/tdd"]
+        brewfile_path: brewfile
       },
       runtime: {command_runner: command_runner}
     ).install
@@ -653,8 +651,7 @@ class InstallerTest < DotfilesTestCase
       options: {skip_brew: false},
       config: {
         mappings: [mapping(source, target)],
-        brewfile_path: brewfile,
-        local_skills: ["engineering/tdd"]
+        brewfile_path: brewfile
       },
       runtime: {command_runner: command_runner}
     ).install
@@ -675,8 +672,7 @@ class InstallerTest < DotfilesTestCase
       options: {skip_brew: false},
       config: {
         mappings: [mapping(source, target)],
-        brewfile_path: brewfile,
-        local_skills: ["engineering/tdd"]
+        brewfile_path: brewfile
       },
       runtime: {command_runner: command_runner, prompt: prompt}
     ).install
@@ -697,8 +693,7 @@ class InstallerTest < DotfilesTestCase
       config: {
         mappings: [mapping(source, target)],
         brewfile_path: brewfile,
-        nvim_configuration_targets: [],
-        local_skills: ["engineering/tdd"]
+        nvim_configuration_targets: []
       },
       runtime: {command_runner: command_runner, prompt: prompt}
     ).install

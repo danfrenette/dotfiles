@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "continuing_phase"
-require "reporters/test_reporter"
 
 class ContinuingPhaseTest < DotfilesTestCase
   PlanningError = Class.new(StandardError)

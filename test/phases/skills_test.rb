@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "phases/skills"
-require "reporters/test_reporter"
 
 class SkillsPhaseTest < DotfilesTestCase
   def setup

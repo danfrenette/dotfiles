@@ -2,7 +2,6 @@
 
 require "test_helper"
 require "phases/opencode2"
-require "reporters/test_reporter"
 
 class OpenCode2PhaseTest < DotfilesTestCase
   def test_reports_combined_plan_and_applies_cli_before_fork
