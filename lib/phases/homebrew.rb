@@ -2,6 +2,7 @@
 
 require_relative "homebrew/plan"
 require_relative "../prepared_phase"
+require_relative "../reporters/console_reporter"
 require_relative "error"
 
 module Phases
@@ -11,10 +12,9 @@ module Phases
 
     class Error < Phases::Error; end
 
-    def initialize(brewfile_path:, command_runner:, reporter:)
+    def initialize(brewfile_path:, command_runner:)
       @brewfile_path = brewfile_path
       @command_runner = command_runner
-      @reporter = reporter
     end
 
     def name
@@ -28,10 +28,10 @@ module Phases
 
     private
 
-    attr_reader :brewfile_path, :command_runner, :reporter
+    attr_reader :brewfile_path, :command_runner
 
     def build_plan
-      reporter.report_phase("Installing Homebrew packages")
+      Reporters::ConsoleReporter.current.report_phase("Installing Homebrew packages")
 
       brew = command_runner.find_executable("brew", candidates: CANDIDATES)
       raise Error, "Homebrew not found; run ./bootstrap.sh first" unless brew
@@ -39,7 +39,7 @@ module Phases
       validate_brewfile
 
       Plan.new(executable: brew, brewfile: brewfile_path).tap do |plan|
-        plan.report_to(reporter)
+        plan.report
       end
     end
 

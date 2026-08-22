@@ -11,6 +11,7 @@ class NeovimPhaseTest < DotfilesTestCase
     @targets = [tmp_path("home/.config/nvim/init.lua"), tmp_path("home/.config/nvim/lua/options.lua")]
     @plugin_manager_path = create_file("home/.local/share/nvim/site/autoload/plug.vim")
     @reporter = Reporters::TestReporter.new
+    use_reporter(@reporter)
   end
 
   def test_plan_reports_absolute_executable_configuration_and_exact_command
@@ -93,8 +94,7 @@ class NeovimPhaseTest < DotfilesTestCase
       load_configuration_targets: -> { @targets },
       plugin_manager_path: @plugin_manager_path,
       availability: Availability.new(available_targets),
-      command_runner: runner,
-      reporter: @reporter
+      command_runner: runner
     )
   end
 end

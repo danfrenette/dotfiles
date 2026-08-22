@@ -8,7 +8,7 @@ class SetupRuntime
   attr_reader :reporter, :prompt, :command_runner
 
   def initialize(
-    reporter: Reporters::ConsoleReporter.new,
+    reporter: Reporters::ConsoleReporter.current,
     prompt: ConfirmationPrompt.new,
     command_runner: CommandRunner.new
   )

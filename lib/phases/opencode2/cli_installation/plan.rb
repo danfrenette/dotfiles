@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../../reporters/console_reporter"
+
 module Phases
   module OpenCode2
     class CLIInstallation
@@ -42,7 +44,8 @@ module Phases
           [executable, "service", "start"]
         end
 
-        def report_to(reporter)
+        def report
+          reporter = Reporters::ConsoleReporter.current
           reporter.report_planned(:ok, "pnpm executable: #{package_manager}")
           reporter.report_planned(:pkg, "#{package_specification} (prerelease channel: #{channel})")
           reporter.report_planned(

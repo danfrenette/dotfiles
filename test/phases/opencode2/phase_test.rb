@@ -13,6 +13,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
     git = "/fake/git"
     bun = "/fake/bun"
     reporter = Reporters::TestReporter.new
+    use_reporter(reporter)
     runner = TestCommandRunner.new(
       executables: {"pnpm" => pnpm, "git" => git, "bun" => bun},
       on_run: lambda do |command, _options|
@@ -30,8 +31,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
       bin_dir: bin_dir,
       checkout: checkout,
       package_manager_candidates: [pnpm],
-      command_runner: runner,
-      reporter: reporter
+      command_runner: runner
     )
 
     phase.prepare.apply
@@ -43,6 +43,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
   end
 
   def test_plan_is_an_immutable_aggregate_class
+    use_reporter(Reporters::TestReporter.new)
     phase = Phases::OpenCode2::Phase.new(
       global_dir: tmp_path("home/.local/share/pnpm/global"),
       bin_dir: tmp_path("home/.local/bin"),
@@ -50,8 +51,7 @@ class OpenCode2PhaseTest < DotfilesTestCase
       package_manager_candidates: ["/fake/pnpm"],
       command_runner: TestCommandRunner.new(
         executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun"}
-      ),
-      reporter: Reporters::TestReporter.new
+      )
     )
 
     plan = phase.prepare.plan

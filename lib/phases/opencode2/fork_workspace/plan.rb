@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../../reporters/console_reporter"
+
 module Phases
   module OpenCode2
     class ForkWorkspace
@@ -33,7 +35,8 @@ module Phases
           [bun, "run", "--cwd", checkout, "dev:web:live"]
         end
 
-        def report_to(reporter)
+        def report
+          reporter = Reporters::ConsoleReporter.current
           reporter.report_planned(:source, source_command.join(" "))
           reporter.report_planned(:deps, dependency_command.join(" "))
         end

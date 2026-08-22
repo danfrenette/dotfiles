@@ -36,11 +36,11 @@ class PhaseCatalog
     new(config: config, runtime: runtime, workflows: workflows).build
   end
 
-  def initialize(phases = nil, config: nil, runtime: nil, reporter: nil, workflows: WORKFLOWS, reset_planning: -> {})
+  def initialize(phases = nil, config: nil, runtime: nil, workflows: WORKFLOWS, reset_planning: -> {})
     @config = config
     @runtime = runtime
     @workflows = workflows.freeze
-    initialize_catalog(phases, reporter: reporter, reset_planning: reset_planning) if phases
+    initialize_catalog(phases, reset_planning: reset_planning) if phases
   end
 
   def build
@@ -50,7 +50,6 @@ class PhaseCatalog
     @availability = Phases::Mappings::ConfigurationAvailability.new(load_mappings: load_mappings)
     initialize_catalog(
       [homebrew, opencode2, mappings, skills, neovim],
-      reporter: runtime.reporter,
       reset_planning: availability.method(:reset)
     )
     self
@@ -69,8 +68,7 @@ class PhaseCatalog
       name: name,
       phases: definition.fetch(:phases).map { |phase_name| phase_named(phase_name) },
       preflight: definition.fetch(:preflight),
-      descriptions: PHASE_DESCRIPTIONS,
-      reporter: reporter
+      descriptions: PHASE_DESCRIPTIONS
     )
   end
 
@@ -79,15 +77,13 @@ class PhaseCatalog
   attr_reader :config,
     :runtime,
     :phases,
-    :reporter,
     :workflows,
     :reset_planning,
     :load_mappings,
     :availability
 
-  def initialize_catalog(phases, reporter:, reset_planning:)
+  def initialize_catalog(phases, reset_planning:)
     @phases = phases.dup.freeze
-    @reporter = reporter
     @reset_planning = reset_planning
     validate_unique_names
     validate_workflows
@@ -111,8 +107,7 @@ class PhaseCatalog
   def homebrew
     Phases::Homebrew.new(
       brewfile_path: config.brewfile_path,
-      command_runner: runtime.command_runner,
-      reporter: runtime.reporter
+      command_runner: runtime.command_runner
     )
   end
 
@@ -122,24 +117,21 @@ class PhaseCatalog
       bin_dir: config.user_bin_dir,
       checkout: config.opencode_fork_checkout,
       package_manager_candidates: config.pnpm_candidates,
-      command_runner: runtime.command_runner,
-      reporter: runtime.reporter
+      command_runner: runtime.command_runner
     )
   end
 
   def mappings
     Phases::Mappings.new(
       load_mappings: load_mappings,
-      availability: availability,
-      reporter: runtime.reporter
+      availability: availability
     )
   end
 
   def skills
     Phases::Skills.new(
       package_manager_candidates: config.pnpm_candidates,
-      command_runner: runtime.command_runner,
-      reporter: runtime.reporter
+      command_runner: runtime.command_runner
     )
   end
 
@@ -148,8 +140,7 @@ class PhaseCatalog
       load_configuration_targets: config.method(:nvim_configuration_targets),
       plugin_manager_path: config.nvim_plugin_manager_path,
       availability: availability,
-      command_runner: runtime.command_runner,
-      reporter: runtime.reporter
+      command_runner: runtime.command_runner
     )
   end
 end

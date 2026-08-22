@@ -2,6 +2,7 @@
 
 require_relative "skills/plan"
 require_relative "../prepared_phase"
+require_relative "../reporters/console_reporter"
 require_relative "error"
 
 module Phases
@@ -12,10 +13,9 @@ module Phases
 
     class Error < Phases::Error; end
 
-    def initialize(package_manager_candidates:, command_runner:, reporter:)
+    def initialize(package_manager_candidates:, command_runner:)
       @package_manager_candidates = package_manager_candidates
       @command_runner = command_runner
-      @reporter = reporter
     end
 
     def name
@@ -29,16 +29,16 @@ module Phases
 
     private
 
-    attr_reader :package_manager_candidates, :command_runner, :reporter
+    attr_reader :package_manager_candidates, :command_runner
 
     def build_plan
-      reporter.report_phase("Installing skills")
+      Reporters::ConsoleReporter.current.report_phase("Installing skills")
 
       package_manager = command_runner.find_executable("pnpm", candidates: package_manager_candidates)
       raise Error, "pnpm not found; run ./install.rb setup before refresh" unless package_manager
 
       Plan.new(package_manager: package_manager).tap do |plan|
-        plan.report_to(reporter)
+        plan.report
       end
     end
 

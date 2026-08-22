@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../reporters/console_reporter"
+
 module Phases
   class Neovim
     class Plan
@@ -26,7 +28,8 @@ module Phases
         [curl, "-fLo", plugin_manager_path, plugin_manager_url]
       end
 
-      def report_to(reporter)
+      def report
+        reporter = Reporters::ConsoleReporter.current
         reporter.report_planned(:run, plugin_manager_command.join(" ")) unless File.file?(plugin_manager_path)
         reporter.report_planned(
           :nvim,

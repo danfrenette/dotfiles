@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../reporters/console_reporter"
+
 module Phases
   class Homebrew
     class Plan
@@ -15,7 +17,8 @@ module Phases
         [executable, "bundle", "--file=#{brewfile}"]
       end
 
-      def report_to(reporter)
+      def report
+        reporter = Reporters::ConsoleReporter.current
         reporter.report_planned(:ok, "Homebrew executable: #{executable}")
         reporter.report_planned(:brew, "#{command.join(" ")} (install or update declared packages)")
       end

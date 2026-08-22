@@ -7,10 +7,10 @@ class MappingsTest < DotfilesTestCase
     super
     @loaded_mappings = []
     load_mappings = -> { @loaded_mappings }
+    use_reporter(Reporters::TestReporter.new)
     @phase = Phases::Mappings.new(
       load_mappings: load_mappings,
-      availability: Phases::Mappings::ConfigurationAvailability.new(load_mappings: load_mappings),
-      reporter: Reporters::TestReporter.new
+      availability: Phases::Mappings::ConfigurationAvailability.new(load_mappings: load_mappings)
     )
   end
 

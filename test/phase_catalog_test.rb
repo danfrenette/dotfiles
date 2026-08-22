@@ -13,6 +13,7 @@ class PhaseCatalogTest < DotfilesTestCase
 
   def test_instance_build_initializes_and_returns_the_catalog
     reporter = Reporters::TestReporter.new
+    use_reporter(reporter)
     catalog = PhaseCatalog.new(
       config: TestConfig.new,
       runtime: SetupRuntime.new(reporter: reporter)
@@ -27,8 +28,9 @@ class PhaseCatalogTest < DotfilesTestCase
   def test_setup_workflow_preflights_independent_phases_then_applies_in_catalog_order
     events = []
     reporter = Reporters::TestReporter.new
+    use_reporter(reporter)
     phases = %i[homebrew opencode2 mappings skills neovim].map { |name| RecordingPhase.new(name, events) }
-    catalog = PhaseCatalog.new(phases, reporter: reporter, reset_planning: -> { events << :reset })
+    catalog = PhaseCatalog.new(phases, reset_planning: -> { events << :reset })
 
     workflow = catalog.workflow(:setup)
     preparations = workflow.prepare
@@ -55,8 +57,9 @@ class PhaseCatalogTest < DotfilesTestCase
   def test_refresh_contains_only_mappings_and_skills
     events = []
     reporter = Reporters::TestReporter.new
+    use_reporter(reporter)
     phases = %i[homebrew opencode2 mappings skills neovim].map { |name| RecordingPhase.new(name, events) }
-    workflow = PhaseCatalog.new(phases, reporter: reporter).workflow(:refresh)
+    workflow = PhaseCatalog.new(phases).workflow(:refresh)
 
     preparations = workflow.prepare
     workflow.apply(preparations)

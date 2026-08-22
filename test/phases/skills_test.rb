@@ -7,6 +7,7 @@ class SkillsPhaseTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
+    use_reporter(@reporter)
   end
 
   def test_plan_reports_the_pinned_global_opencode_handoff
@@ -42,8 +43,7 @@ class SkillsPhaseTest < DotfilesTestCase
     runner = command_runner || TestCommandRunner.new(executables: executables)
     Phases::Skills.new(
       package_manager_candidates: ["/fake/pnpm"],
-      command_runner: runner,
-      reporter: @reporter
+      command_runner: runner
     )
   end
 end

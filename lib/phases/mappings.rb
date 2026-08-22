@@ -3,16 +3,16 @@
 require_relative "../mapping_change"
 require_relative "../mapping_plan_applier"
 require_relative "../prepared_phase"
+require_relative "../reporters/console_reporter"
 require_relative "mappings/configuration_availability"
 
 module Phases
   class Mappings
     NAME = :mappings
 
-    def initialize(load_mappings:, availability:, reporter:, plan_applier: MappingPlanApplier.new)
+    def initialize(load_mappings:, availability:, plan_applier: MappingPlanApplier.new)
       @load_mappings = load_mappings
       @availability = availability
-      @reporter = reporter
       @plan_applier = plan_applier
     end
 
@@ -28,9 +28,10 @@ module Phases
 
     private
 
-    attr_reader :load_mappings, :availability, :reporter, :plan_applier
+    attr_reader :load_mappings, :availability, :plan_applier
 
     def build_plan
+      reporter = Reporters::ConsoleReporter.current
       reporter.report_phase("Linking dotfiles")
 
       loaded_mappings.flat_map { |mapping| MappingChange.new(mapping).operations }.tap do |operations|

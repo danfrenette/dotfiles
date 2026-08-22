@@ -3,6 +3,7 @@
 require "fileutils"
 require_relative "neovim/plan"
 require_relative "../prepared_phase"
+require_relative "../reporters/console_reporter"
 require_relative "error"
 
 module Phases
@@ -12,12 +13,11 @@ module Phases
 
     class Error < Phases::Error; end
 
-    def initialize(load_configuration_targets:, plugin_manager_path:, availability:, command_runner:, reporter:)
+    def initialize(load_configuration_targets:, plugin_manager_path:, availability:, command_runner:)
       @load_configuration_targets = load_configuration_targets
       @plugin_manager_path = plugin_manager_path
       @availability = availability
       @command_runner = command_runner
-      @reporter = reporter
     end
 
     def name
@@ -31,10 +31,10 @@ module Phases
 
     private
 
-    attr_reader :load_configuration_targets, :plugin_manager_path, :availability, :command_runner, :reporter
+    attr_reader :load_configuration_targets, :plugin_manager_path, :availability, :command_runner
 
     def build_plan
-      reporter.report_phase("Installing Neovim plugins")
+      Reporters::ConsoleReporter.current.report_phase("Installing Neovim plugins")
 
       executable = command_runner.find_executable("nvim")
       raise Error, "Neovim not found; install nvim before running this phase" unless executable
@@ -55,7 +55,7 @@ module Phases
         plugin_manager_url: PLUGIN_MANAGER_URL,
         configuration_targets: configuration_targets
       ).tap do |plan|
-        plan.report_to(reporter)
+        plan.report
       end
     end
 
@@ -72,7 +72,7 @@ module Phases
       raise Error, "Neovim plugin installation could not start" if result.nil?
       raise Error, "Neovim plugin installation exited with a nonzero status" unless result
 
-      reporter.report_action(:neovim_complete, command: plan.command)
+      Reporters::ConsoleReporter.current.report_action(:neovim_complete, command: plan.command)
     rescue SystemCallError => error
       raise Error, "Neovim filesystem operation failed: #{error.message}"
     end

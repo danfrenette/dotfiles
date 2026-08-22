@@ -24,6 +24,14 @@ class Installer
   end
 
   def install
+    Reporters::ConsoleReporter.with(reporter) { perform_install }
+  end
+
+  private
+
+  attr_reader :options, :prompt, :reporter, :catalog
+
+  def perform_install
     workflow = catalog.workflow(options.workflow)
     preparations = workflow.prepare
     return finish_dry_run if options.dry_run
@@ -36,10 +44,6 @@ class Installer
     reporter.report_warning(error.message)
     1
   end
-
-  private
-
-  attr_reader :options, :prompt, :reporter, :catalog
 
   def finish_dry_run
     reporter.report_dry_completion

@@ -10,6 +10,7 @@ $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 
 require "config"
 require "phases/mappings"
+require "reporters/console_reporter"
 require "support/assertions"
 require "support/test_config"
 require "support/test_prompt"
@@ -28,7 +29,13 @@ class DotfilesTestCase < Minitest::Test
   end
 
   def teardown
+    Reporters::ConsoleReporter.current = @previous_reporter if defined?(@previous_reporter)
     FileUtils.rm_rf(@tmpdir) if @tmpdir && Dir.exist?(@tmpdir)
+  end
+
+  def use_reporter(reporter)
+    @previous_reporter = Reporters::ConsoleReporter.current unless defined?(@previous_reporter)
+    Reporters::ConsoleReporter.current = reporter
   end
 
   def tmp_path(*parts)

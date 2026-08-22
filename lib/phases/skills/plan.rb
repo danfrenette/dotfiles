@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "../../reporters/console_reporter"
+
 module Phases
   class Skills
     class Plan
@@ -14,7 +16,8 @@ module Phases
         [package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global", "--agent", "opencode"]
       end
 
-      def report_to(reporter)
+      def report
+        reporter = Reporters::ConsoleReporter.current
         reporter.report_planned(
           :skills,
           "#{command.join(" ")} (opens the skills CLI to select skills for global OpenCode)"

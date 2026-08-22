@@ -53,7 +53,7 @@ class InstallerWorkflowTest < DotfilesTestCase
     def failing.prepare
       raise Phases::Error, "OpenCode2 failed"
     end
-    catalog = PhaseCatalog.new(phases, reporter: reporter)
+    catalog = PhaseCatalog.new(phases)
     installer = Installer.new(
       options: SetupOptions.new(workflow: :setup, yes: true),
       prompt: TestPrompt.new,
@@ -77,7 +77,7 @@ class InstallerWorkflowTest < DotfilesTestCase
       options: SetupOptions.new(workflow: workflow, yes: yes),
       prompt: prompt,
       reporter: reporter,
-      catalog: PhaseCatalog.new(standard_phases(events), reporter: reporter)
+      catalog: PhaseCatalog.new(standard_phases(events))
     )
   end
 

@@ -4,6 +4,22 @@ require_relative "../config"
 
 module Reporters
   class ConsoleReporter
+    class << self
+      attr_writer :current
+
+      def current
+        @current ||= new
+      end
+
+      def with(reporter)
+        previous = @current
+        @current = reporter
+        yield
+      ensure
+        @current = previous
+      end
+    end
+
     PREFIXES = {
       create_directory: "[MKDIR]",
       remove: "[REMOVE]",
