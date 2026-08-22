@@ -1,0 +1,10 @@
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/ruby:4.0.3
+    steps:
+      - checkout
+      - run: bundle install
+      - run: bundle exec rake
