@@ -12,12 +12,7 @@ module Reporters
       create_copy: "[COPY]",
       unchanged: "[OK]",
       unchanged_copy: "[OK]",
-      available: "[OK]",
-      bundle: "[BREW]",
-      install: "[RUN]",
-      neovim: "[NVIM]",
-      neovim_complete: "[OK]",
-      skills: "[SKILLS]"
+      neovim_complete: "[OK]"
     }.freeze
 
     def initialize(output: $stdout)
@@ -92,18 +87,8 @@ module Reporters
         "#{format_path(meta[:source])} -> #{meta[:target]}"
       when :unchanged, :unchanged_copy
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
-      when :available
-        "Homebrew executable: #{meta[:path]}"
-      when :bundle
-        "#{meta[:command].join(" ")} (#{meta[:effect]})"
-      when :install
-        meta[:command].join(" ")
-      when :neovim
-        "#{meta[:command].join(" ")} (configuration: #{meta[:configuration_targets].join(", ")})"
       when :neovim_complete
         "Neovim plugins installed"
-      when :skills
-        "#{meta[:command].join(" ")} (#{meta[:effect]})"
       else
         "#{meta[:name] || meta[:source]} (unknown: #{type})"
       end

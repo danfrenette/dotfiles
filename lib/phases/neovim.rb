@@ -55,7 +55,7 @@ module Phases
         plugin_manager_url: PLUGIN_MANAGER_URL,
         configuration_targets: configuration_targets
       ).tap do |plan|
-        plan.items.each { |item| reporter.report_action(item.fetch(:type), item.fetch(:meta)) }
+        plan.report_to(reporter)
       end
     end
 

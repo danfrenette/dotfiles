@@ -38,7 +38,7 @@ module Phases
       raise Error, "pnpm not found; run ./install.rb setup before refresh" unless package_manager
 
       Plan.new(package_manager: package_manager).tap do |plan|
-        plan.items.each { |item| reporter.report_action(item.fetch(:type), item.fetch(:meta)) }
+        plan.report_to(reporter)
       end
     end
 

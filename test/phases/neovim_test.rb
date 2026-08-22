@@ -21,7 +21,7 @@ class NeovimPhaseTest < DotfilesTestCase
     assert_equal "/fake/nvim", plan.executable
     assert_equal @targets, plan.configuration_targets
     assert_equal ["/fake/nvim", "--headless", "+PlugInstall", "+qa"], plan.command
-    assert_equal :neovim, @reporter.actions.first[:type]
+    assert_equal :nvim, @reporter.planned_actions.first[:label]
     assert_predicate plan, :frozen?
   end
 

@@ -26,19 +26,12 @@ module Phases
         [curl, "-fLo", plugin_manager_path, plugin_manager_url]
       end
 
-      def items
-        items = []
-        unless File.file?(plugin_manager_path)
-          items << {
-            type: :install,
-            meta: {command: plugin_manager_command}
-          }
-        end
-        items << {
-          type: :neovim,
-          meta: {executable: executable, configuration_targets: configuration_targets, command: command}
-        }
-        items
+      def report_to(reporter)
+        reporter.report_planned(:run, plugin_manager_command.join(" ")) unless File.file?(plugin_manager_path)
+        reporter.report_planned(
+          :nvim,
+          "#{command.join(" ")} (configuration: #{configuration_targets.join(", ")})"
+        )
       end
     end
   end

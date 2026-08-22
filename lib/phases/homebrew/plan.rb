@@ -15,18 +15,9 @@ module Phases
         [executable, "bundle", "--file=#{brewfile}"]
       end
 
-      def items
-        [
-          {type: :available, meta: {path: executable}},
-          {
-            type: :bundle,
-            meta: {
-              command: command,
-              brewfile: brewfile,
-              effect: "install or update declared packages"
-            }
-          }
-        ]
+      def report_to(reporter)
+        reporter.report_planned(:ok, "Homebrew executable: #{executable}")
+        reporter.report_planned(:brew, "#{command.join(" ")} (install or update declared packages)")
       end
     end
   end

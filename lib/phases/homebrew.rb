@@ -39,7 +39,7 @@ module Phases
       validate_brewfile
 
       Plan.new(executable: brew, brewfile: brewfile_path).tap do |plan|
-        plan.items.each { |item| reporter.report_action(item.fetch(:type), item.fetch(:meta)) }
+        plan.report_to(reporter)
       end
     end
 

@@ -14,7 +14,7 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal ["Installing OpenCode2", "Linking dotfiles", "Installing skills", "Installing Neovim plugins"], @reporter.phases
     assert @reporter.completion_reported
-    assert_includes @reporter.action_types, :skills
+    assert_includes @reporter.planned_actions.map { |action| action[:label] }, :skills
   end
 
   def test_plans_confirms_and_applies_mappings
@@ -292,11 +292,11 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    availability = @reporter.actions.find { |action| action[:type] == :available }
-    bundle = @reporter.actions.find { |action| action[:type] == :bundle }
-    assert_equal "/opt/homebrew/bin/brew", availability[:meta][:path]
-    assert_equal brewfile, bundle[:meta][:brewfile]
-    assert_equal "install or update declared packages", bundle[:meta][:effect]
+    availability = @reporter.planned_actions.find { |action| action[:label] == :ok }
+    bundle = @reporter.planned_actions.find { |action| action[:label] == :brew }
+    assert_equal "Homebrew executable: /opt/homebrew/bin/brew", availability[:message]
+    assert_includes bundle[:message], "--file=#{brewfile}"
+    assert_includes bundle[:message], "install or update declared packages"
     assert_empty command_runner.calls
     assert @reporter.dry_completion_reported
   end
@@ -482,8 +482,8 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    skills = @reporter.actions.find { |action| action[:type] == :skills }
-    assert_equal ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"], skills[:meta][:command]
+    skills = @reporter.planned_actions.find { |action| action[:label] == :skills }
+    assert_includes skills[:message], "/fake/pnpm dlx skills@1.5.22 add danfrenette/skills --global --agent opencode"
     assert_equal ["Installing skills"], @reporter.phases
     assert_empty runner.calls
     assert @reporter.dry_completion_reported

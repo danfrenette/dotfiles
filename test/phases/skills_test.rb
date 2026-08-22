@@ -15,7 +15,7 @@ class SkillsPhaseTest < DotfilesTestCase
     plan = phase.prepare.plan
 
     assert_equal ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"], plan.command
-    assert_equal :skills, @reporter.actions.last[:type]
+    assert_equal :skills, @reporter.planned_actions.last[:label]
     assert_predicate plan, :frozen?
   end
 

@@ -14,11 +14,11 @@ module Phases
         [package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global", "--agent", "opencode"]
       end
 
-      def items
-        [{
-          type: :skills,
-          meta: {command: command, effect: "opens the skills CLI to select skills for global OpenCode"}
-        }]
+      def report_to(reporter)
+        reporter.report_planned(
+          :skills,
+          "#{command.join(" ")} (opens the skills CLI to select skills for global OpenCode)"
+        )
       end
     end
   end
