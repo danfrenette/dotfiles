@@ -30,7 +30,7 @@ class SetupCLI
 
     validate_arguments
     Installer.run(options: SetupOptions.new(workflow: command.to_sym, **options))
-  rescue OptionParser::ParseError, PhaseCatalog::UnsupportedPhase, ArgumentError => parse_error
+  rescue OptionParser::ParseError, ArgumentError => parse_error
     error.puts parse_error.message
     error.puts parser
     64

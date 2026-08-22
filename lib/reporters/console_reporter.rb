@@ -5,7 +5,6 @@ require_relative "../config"
 module Reporters
   class ConsoleReporter
     PREFIXES = {
-      skipped: "[SKIP]",
       create_directory: "[MKDIR]",
       remove: "[REMOVE]",
       move: "[BACKUP]",
@@ -81,8 +80,6 @@ module Reporters
 
     def format_action(type, meta)
       case type
-      when :skipped
-        meta[:message].to_s
       when :create_directory
         meta[:path]
       when :remove

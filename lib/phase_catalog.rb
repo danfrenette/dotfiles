@@ -8,8 +8,6 @@ require_relative "phases/skills"
 require_relative "workflow"
 
 class PhaseCatalog
-  include Enumerable
-
   PHASE_DESCRIPTIONS = {
     homebrew: "Install baseline packages from Brewfile",
     opencode2: "Install OpenCode2 and prepare its development workspace",
@@ -56,10 +54,6 @@ class PhaseCatalog
       reset_planning: availability.method(:reset)
     )
     self
-  end
-
-  def each(&block)
-    phases.each(&block)
   end
 
   def names

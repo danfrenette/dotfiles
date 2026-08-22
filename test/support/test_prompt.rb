@@ -16,10 +16,6 @@ class TestPrompt
     answer
   end
 
-  def select(phases)
-    phases
-  end
-
   private
 
   attr_reader :answer, :behavior
