@@ -38,7 +38,7 @@ bundle install
 # Full installation
 bin/dotfiles setup
 
-# Refresh dotfiles and skills on an existing machine
+# Refresh dotfiles and skills after restarting your shell
 dotfiles refresh
 
 # Dry run (shows what would be backed up/replaced)
@@ -47,6 +47,9 @@ bin/dotfiles setup --dry-run
 # Preview a routine refresh
 dotfiles refresh --dry-run
 ```
+
+Setup installs the `dotfiles` command in `~/.local/bin`. Restart your shell
+(or run `exec zsh`) before using it.
 
 ### Development
 
