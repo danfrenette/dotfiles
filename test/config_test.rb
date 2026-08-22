@@ -26,7 +26,6 @@ class ConfigTest < DotfilesTestCase
     mappings = @config.mappings
 
     gitconfig = mappings.find { |mapping| mapping.source == @config.dotfiles_path("git", "gitconfig") }
-    assert_equal :link, gitconfig.operation
     assert_equal @config.home_path(".gitconfig"), gitconfig.target
   end
 
@@ -73,8 +72,7 @@ class ConfigTest < DotfilesTestCase
     create_file("repository/config/nvim/init.lua")
     manifest_path = create_file("nvim-mappings.yml", <<~YAML)
       mappings:
-        - operation: copy
-          source: config/nvim/init.lua
+        - source: config/nvim/init.lua
           target: .config/nvim/custom.lua
     YAML
     config = Config.new(
@@ -111,10 +109,6 @@ class ConfigTest < DotfilesTestCase
     end
   end
 
-  def test_all_real_mappings_explicitly_link
-    assert @config.mappings.all?(&:link?)
-  end
-
   def test_resolves_injected_manifest_in_order
     repository_root = create_dir("repository")
     home_root = create_dir("home")
@@ -122,11 +116,9 @@ class ConfigTest < DotfilesTestCase
     create_file("repository/second")
     manifest_path = create_file("mappings.yml", <<~YAML)
       mappings:
-        - operation: copy
-          source: first
+        - source: first
           target: .first
-        - operation: link
-          source: second
+        - source: second
           target: nested/second
     YAML
 
@@ -136,7 +128,6 @@ class ConfigTest < DotfilesTestCase
       mappings_path: manifest_path
     ).mappings
 
-    assert_equal [:copy, :link], mappings.map(&:operation)
     assert_equal [File.join(repository_root, "first"), File.join(repository_root, "second")], mappings.map(&:source)
     assert_equal [File.join(home_root, ".first"), File.join(home_root, "nested/second")], mappings.map(&:target)
   end

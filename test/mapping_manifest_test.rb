@@ -16,19 +16,14 @@ class MappingManifestTest < DotfilesTestCase
   end
 
   def test_rejects_invalid_entry_shapes
-    assert_invalid("mappings:\n  - source: file\n    target: .file", /exactly operation, source, and target strings/)
-    assert_invalid(<<~YAML, /exactly operation, source, and target strings/)
+    assert_invalid("mappings:\n  - source: file", /exactly source and target strings/)
+    assert_invalid(<<~YAML, /exactly source and target strings/)
       mappings:
-        - operation: link
-          source: file
+        - source: file
           target: .file
           extra: true
     YAML
-    assert_invalid("mappings:\n  - operation: link\n    source: 1\n    target: .file", /exactly operation/)
-  end
-
-  def test_rejects_unsupported_operations
-    assert_invalid(manifest(operation: "move"), /unsupported operation/)
+    assert_invalid("mappings:\n  - source: 1\n    target: .file", /exactly source/)
   end
 
   def test_rejects_invalid_source_and_target_paths
@@ -62,17 +57,7 @@ class MappingManifestTest < DotfilesTestCase
     create_file("outside/secret")
     File.symlink(outside, File.join(@repository_root, "escaped"))
 
-    assert_invalid(manifest(operation: "copy", source: "escaped/secret"), /source parent escapes repository root/)
-  end
-
-  def test_copy_allows_source_itself_to_be_an_external_symlink
-    outside = create_file("outside-file")
-    File.symlink(outside, File.join(@repository_root, "external-link"))
-
-    mapping = load_manifest(manifest(operation: "copy", source: "external-link")).first
-
-    assert mapping.copy?
-    assert_equal outside, File.readlink(mapping.source)
+    assert_invalid(manifest(source: "escaped/secret"), /source parent escapes repository root/)
   end
 
   def test_rejects_targets_that_collide_with_generated_backup_paths
@@ -87,11 +72,9 @@ class MappingManifestTest < DotfilesTestCase
     error = assert_raises(MappingManifest::InvalidManifest) do
       load_manifest(<<~YAML)
         mappings:
-          - operation: link
-            source: first-missing
+          - source: first-missing
             target: .first
-          - operation: copy
-            source: second-missing
+          - source: second-missing
             target: .second
       YAML
     end
@@ -100,20 +83,12 @@ class MappingManifestTest < DotfilesTestCase
     assert_includes error.message, File.join(@repository_root, "second-missing")
   end
 
-  def test_copy_accepts_a_broken_root_symlink_but_link_rejects_it
-    File.symlink("missing", File.join(@repository_root, "broken"))
-
-    assert_equal :copy, load_manifest(manifest(operation: "copy", source: "broken")).first.operation
-    assert_invalid(manifest(operation: "link", source: "broken"), /sources do not exist/)
-  end
-
   private
 
-  def manifest(operation: "link", source: "file", target: ".file")
+  def manifest(source: "file", target: ".file")
     <<~YAML
       mappings:
-        - operation: #{operation.inspect}
-          source: #{source.inspect}
+        - source: #{source.inspect}
           target: #{target.inspect}
     YAML
   end
@@ -121,11 +96,9 @@ class MappingManifestTest < DotfilesTestCase
   def two_entry_manifest(first_target, second_target)
     <<~YAML
       mappings:
-        - operation: link
-          source: first
+        - source: first
           target: #{first_target}
-        - operation: copy
-          source: second
+        - source: second
           target: #{second_target}
     YAML
   end

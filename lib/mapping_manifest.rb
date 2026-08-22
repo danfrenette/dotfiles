@@ -7,21 +7,12 @@ class MappingManifest
   include Enumerable
 
   BACKUP_SUFFIX = ".backup"
-  Mapping = Data.define(:operation, :source, :target) do
-    def link?
-      operation == :link
-    end
-
-    def copy?
-      operation == :copy
-    end
-
+  Mapping = Data.define(:source, :target) do
     def backup_target
       "#{target}#{MappingManifest::BACKUP_SUFFIX}"
     end
   end
   InvalidManifest = Class.new(ArgumentError)
-  OPERATIONS = %w[link copy].freeze
 
   def self.load(path, repository_root:, home_root:)
     new(path, repository_root: repository_root, home_root: home_root)
@@ -56,24 +47,16 @@ class MappingManifest
 
   def build_mapping(entry, index)
     case entry
-    in {operation: String => operation, source: String => source, target: String => target, **nil}
-      validate_operation!(operation, index)
+    in {source: String => source, target: String => target, **nil}
       validate_path!(source, :source, index)
       validate_path!(target, :target, index)
       Mapping.new(
-        operation: operation.to_sym,
         source: File.join(repository_root, source),
         target: File.join(home_root, target)
       )
     else
-      raise InvalidManifest, "mapping #{index + 1} must contain exactly operation, source, and target strings"
+      raise InvalidManifest, "mapping #{index + 1} must contain exactly source and target strings"
     end
-  end
-
-  def validate_operation!(operation, index)
-    return if OPERATIONS.include?(operation)
-
-    raise InvalidManifest, "mapping #{index + 1} has unsupported operation: #{operation.inspect}"
   end
 
   def validate_path!(path, field, index)
@@ -121,18 +104,12 @@ class MappingManifest
   end
 
   def validate_sources!
-    missing = entries.filter_map do |mapping|
-      mapping.source unless source_exists?(mapping)
-    end
+    missing = entries.filter_map { |mapping| mapping.source unless File.exist?(mapping.source) }
     unless missing.empty?
       raise InvalidManifest, "mapping sources do not exist: #{missing.join(", ")}"
     end
 
     entries.each { |mapping| validate_source_parent!(mapping.source) }
-  end
-
-  def source_exists?(mapping)
-    File.exist?(mapping.source) || (mapping.copy? && File.symlink?(mapping.source))
   end
 
   def validate_source_parent!(source)

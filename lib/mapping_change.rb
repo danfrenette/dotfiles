@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "copy_comparison"
 require_relative "mapping_operation"
 
 class MappingChange
@@ -12,10 +11,10 @@ class MappingChange
 
   def operations
     validate_source!
-    return [unchanged_operation] if unchanged?
+    return [MappingOperation.unchanged(source, target)] if correctly_linked?
 
     validate_parent!
-    parent_operations + backup_operations + [install_operation]
+    parent_operations + backup_operations + [MappingOperation.create_symlink(source, target)]
   end
 
   private
@@ -23,24 +22,7 @@ class MappingChange
   attr_reader :mapping, :source, :target
 
   def validate_source!
-    exists = File.exist?(source) || (mapping.copy? && File.symlink?(source))
-    raise ArgumentError, "Source does not exist: #{source}" unless exists
-  end
-
-  def unchanged?
-    if mapping.link?
-      correctly_linked?
-    else
-      CopyComparison.new(source, target).match?
-    end
-  end
-
-  def unchanged_operation
-    if mapping.link?
-      MappingOperation.unchanged(source, target)
-    else
-      MappingOperation.unchanged_copy(source, target)
-    end
+    raise ArgumentError, "Source does not exist: #{source}" unless File.exist?(source)
   end
 
   def parent_operations
@@ -55,14 +37,6 @@ class MappingChange
     operations = []
     operations << MappingOperation.remove(backup_path) if target_exists?(backup_path)
     operations << MappingOperation.move(target, backup_path)
-  end
-
-  def install_operation
-    if mapping.link?
-      MappingOperation.create_symlink(source, target)
-    else
-      MappingOperation.create_copy(source, target)
-    end
   end
 
   def correctly_linked?

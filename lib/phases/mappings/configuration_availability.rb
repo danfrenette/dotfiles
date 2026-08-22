@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative "../../copy_comparison"
-
 module Phases
   class Mappings
     class ConfigurationAvailability
@@ -33,9 +31,7 @@ module Phases
       attr_reader :load_mappings, :planned_targets
 
       def current?(mapping)
-        return correctly_linked?(mapping.target, mapping.source) if mapping.link?
-
-        CopyComparison.new(mapping.source, mapping.target).match?
+        correctly_linked?(mapping.target, mapping.source)
       end
 
       def correctly_linked?(target, source)

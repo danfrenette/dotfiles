@@ -105,11 +105,9 @@ class InstallerTest < DotfilesTestCase
     File.symlink(outside, File.join(repository_root, "escaped"))
     manifest_path = create_file("escape-mappings.yml", <<~YAML)
       mappings:
-        - operation: link
-          source: safe
+        - source: safe
           target: .safe
-        - operation: copy
-          source: escaped/secret
+        - source: escaped/secret
           target: .secret
     YAML
 
@@ -130,11 +128,9 @@ class InstallerTest < DotfilesTestCase
     backup_target = create_file("collision-home/x.backup", "valid second")
     manifest_path = create_file("collision-mappings.yml", <<~YAML)
       mappings:
-        - operation: copy
-          source: first
+        - source: first
           target: x
-        - operation: copy
-          source: second
+        - source: second
           target: x.backup
     YAML
 
@@ -218,22 +214,19 @@ class InstallerTest < DotfilesTestCase
     refute File.exist?("#{target}.backup")
   end
 
-  def test_plans_and_applies_link_and_copy_mappings_in_manifest_order
-    link_source, link_target = create_mapping("linked")
-    copy_source, copy_target = create_mapping("copied")
+  def test_plans_and_applies_mappings_in_manifest_order
+    first_source, first_target = create_mapping("first")
+    second_source, second_target = create_mapping("second")
 
     status = build_installer(
       options: {only: :mappings, yes: true},
-      config: {
-        mappings: [mapping(link_source, link_target), mapping(copy_source, copy_target, operation: :copy)]
-      }
+      config: {mappings: [mapping(first_source, first_target), mapping(second_source, second_target)]}
     ).install
 
     assert_equal 0, status
-    assert_equal [:create_directory, :create_symlink, :create_directory, :create_copy], @reporter.action_types
-    assert_symlink link_target, to: link_source
-    refute File.symlink?(copy_target)
-    assert_equal File.read(copy_source), File.read(copy_target)
+    assert_equal [:create_directory, :create_symlink, :create_directory, :create_symlink], @reporter.action_types
+    assert_symlink first_target, to: first_source
+    assert_symlink second_target, to: second_source
   end
 
   def test_removed_mapping_is_left_untouched
@@ -251,20 +244,6 @@ class InstallerTest < DotfilesTestCase
 
     assert_symlink second_target, to: second_source
     refute File.exist?("#{second_target}.backup")
-  end
-
-  def test_declined_copy_plan_creates_no_target_or_staging_directory
-    source, target = create_mapping("copied")
-
-    status = build_installer(
-      options: {only: :mappings},
-      config: {mappings: [mapping(source, target, operation: :copy)]},
-      runtime: {prompt: TestPrompt.new(false)}
-    ).install
-
-    assert_equal 0, status
-    refute File.exist?(target)
-    assert_empty Dir.glob(File.join(File.dirname(target), ".dotfiles-stage-*"))
   end
 
   def test_only_mappings_excludes_unrelated_phases
@@ -489,15 +468,17 @@ class InstallerTest < DotfilesTestCase
     assert @reporter.dry_completion_reported
   end
 
-  def test_neovim_only_accepts_current_copied_configuration
+  def test_neovim_only_accepts_current_linked_configuration
     source = create_file("dotfiles/nvim/init.lua", "require('plugins')")
-    target = create_file("home/.config/nvim/init.lua", "require('plugins')")
+    target = tmp_path("home/.config/nvim/init.lua")
+    FileUtils.mkdir_p(File.dirname(target))
+    File.symlink(source, target)
     runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim"})
 
     status = build_installer(
       options: {only: :neovim, yes: true},
       config: {
-        mappings: [mapping(source, target, operation: :copy)],
+        mappings: [mapping(source, target)],
         nvim_configuration_targets: [target]
       },
       runtime: {command_runner: runner}

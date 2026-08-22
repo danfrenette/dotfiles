@@ -17,28 +17,16 @@ MappingOperation = Data.define(:type, :source, :target, :path) do
     new(type: :create_symlink, source: source, target: target, path: nil)
   end
 
-  def self.create_copy(source, target)
-    new(type: :create_copy, source: source, target: target, path: nil)
-  end
-
   def self.unchanged(source, target)
     new(type: :unchanged, source: source, target: target, path: nil)
-  end
-
-  def self.unchanged_copy(source, target)
-    new(type: :unchanged_copy, source: source, target: target, path: nil)
   end
 
   def meta
     {source: source, target: target, path: path}.compact
   end
 
-  def copy?
-    type == :create_copy
-  end
-
   def establishes_target?
-    [:create_symlink, :create_copy, :unchanged, :unchanged_copy].include?(type)
+    [:create_symlink, :unchanged].include?(type)
   end
 end
 

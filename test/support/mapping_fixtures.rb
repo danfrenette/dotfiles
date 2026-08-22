@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 module MappingFixtures
-  def mapping(source, target, operation: :link)
-    MappingManifest::Mapping.new(operation: operation, source: source, target: target)
+  def mapping(source, target)
+    MappingManifest::Mapping.new(source: source, target: target)
   end
 
   def create_mapping(name, content = "test content")

@@ -1,52 +1,35 @@
 mappings:
-  - operation: link
-    source: git/gitconfig
+  - source: git/gitconfig
     target: .gitconfig
-  - operation: link
-    source: git/gitignore
+  - source: git/gitignore
     target: .gitignore
-  - operation: link
-    source: git/gitmessage
+  - source: git/gitmessage
     target: .gitmessage
-  - operation: link
-    source: git/ignore
+  - source: git/ignore
     target: .config/git/ignore
-  - operation: link
-    source: zsh/zshrc
+  - source: zsh/zshrc
     target: .zshrc
-  - operation: link
-    source: zsh/zprofile
+  - source: zsh/zprofile
     target: .zprofile
-  - operation: link
-    source: config/nvim/init.lua
+  - source: config/nvim/init.lua
     target: .config/nvim/init.lua
-  - operation: link
-    source: config/nvim/lua/options.lua
+  - source: config/nvim/lua/options.lua
     target: .config/nvim/lua/options.lua
-  - operation: link
-    source: config/nvim/lua/keymaps.lua
+  - source: config/nvim/lua/keymaps.lua
     target: .config/nvim/lua/keymaps.lua
-  - operation: link
-    source: config/nvim/lua/plugins.lua
+  - source: config/nvim/lua/plugins.lua
     target: .config/nvim/lua/plugins.lua
-  - operation: link
-    source: config/nvim/lua/autocmds.lua
+  - source: config/nvim/lua/autocmds.lua
     target: .config/nvim/lua/autocmds.lua
-  - operation: link
-    source: config/ghostty/config
+  - source: config/ghostty/config
     target: .config/ghostty/config
-  - operation: link
-    source: tmux/tmux.conf
+  - source: tmux/tmux.conf
     target: .tmux.conf
-  - operation: link
-    source: ruby/irbrc
+  - source: ruby/irbrc
     target: .irbrc
-  - operation: link
-    source: ruby/pryrc
+  - source: ruby/pryrc
     target: .pryrc
-  - operation: link
-    source: config/psqlrc
+  - source: config/psqlrc
     target: .psqlrc
-  - operation: link
-    source: cursor/commands
+  - source: cursor/commands
     target: .cursor/commands

@@ -9,9 +9,7 @@ module Reporters
       remove: "[REMOVE]",
       move: "[BACKUP]",
       create_symlink: "[LINK]",
-      create_copy: "[COPY]",
       unchanged: "[OK]",
-      unchanged_copy: "[OK]",
       neovim_complete: "[OK]"
     }.freeze
 
@@ -83,9 +81,7 @@ module Reporters
         "#{meta[:source]} -> #{meta[:target]}"
       when :create_symlink
         "#{format_path(meta[:source])} -> #{meta[:target]}"
-      when :create_copy
-        "#{format_path(meta[:source])} -> #{meta[:target]}"
-      when :unchanged, :unchanged_copy
+      when :unchanged
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
       when :neovim_complete
         "Neovim plugins installed"
