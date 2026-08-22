@@ -13,6 +13,14 @@ If you find any of them useful, let me know.
 
 ## Installation
 
+### Warning/Preface/Sanity Check
+
+I made this installer because it's a fun little demo of how I like to compose
+classes in Ruby, and because I like to format my machines more often than most,
+but it's probably not the best way for you to get value out of this.
+
+I recommend pointing your agent at the repo and chatting about things that might be useful to you over actually running what follows. That said, if you're really interested in running my software on some _really_ important configurations, have at it!
+
 ### Quick Start
 
 ```bash
@@ -38,7 +46,7 @@ bundle install
 # Full installation
 bin/dotfiles setup
 
-# Refresh dotfiles and skills on an existing machine
+# Refresh dotfiles and skills after restarting your shell
 dotfiles refresh
 
 # Dry run (shows what would be backed up/replaced)
@@ -47,6 +55,9 @@ bin/dotfiles setup --dry-run
 # Preview a routine refresh
 dotfiles refresh --dry-run
 ```
+
+Setup installs the `dotfiles` command in `~/.local/bin`. Restart your shell
+(or run `exec zsh`) before using it.
 
 ### Development
 

@@ -11,7 +11,6 @@ alias dclean="docker volume rm \$(docker volume ls -qf dangling=true);docker rmi
 alias dcs="docker-compose build; docker-compose run web rake db:setup; docker-compose up"
 alias dcu="docker-compose up"
 alias debugzsh="zsh -xv"
-alias dotfiles="cd $DOTFILES"
 alias drop="cd ~/Dropbox"
 alias dv="git co develop"
 alias e="vim"
