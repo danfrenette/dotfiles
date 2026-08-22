@@ -35,7 +35,7 @@ module Phases
       Reporters::ConsoleReporter.current.report_phase("Installing skills")
 
       package_manager = command_runner.find_executable("pnpm", candidates: package_manager_candidates)
-      raise Error, "pnpm not found; run ./install.rb setup before refresh" unless package_manager
+      raise Error, "pnpm not found; run dotfiles setup before refresh" unless package_manager
 
       Plan.new(package_manager: package_manager).tap do |plan|
         plan.report

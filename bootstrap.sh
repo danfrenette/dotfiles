@@ -147,4 +147,4 @@ fi
 
 echo ""
 echo "=== Running installer with Ruby $RUBY_VERSION ==="
-RBENV_VERSION="$RUBY_VERSION" rbenv exec ruby "$ROOT/install.rb" setup "$@"
+RBENV_VERSION="$RUBY_VERSION" rbenv exec ruby "$ROOT/bin/dotfiles" setup "$@"

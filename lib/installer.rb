@@ -38,7 +38,10 @@ class Installer
     return 0 unless options.yes || prompt.confirm?
 
     workflow.apply(preparations)
-    reporter.report_completion(["Restart your terminal (or run: exec zsh)"])
+    reporter.report_completion([
+      "Restart your terminal (or run: exec zsh)",
+      "Run dotfiles refresh to update your configuration"
+    ])
     0
   rescue ArgumentError, Phases::Error, SystemCallError => error
     reporter.report_warning(error.message)

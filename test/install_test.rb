@@ -10,7 +10,7 @@ class InstallTest < DotfilesTestCase
     stdout, stderr, status = run_install("--help")
 
     assert status.success?
-    assert_includes stdout, "Usage: install.rb COMMAND [options]"
+    assert_includes stdout, "Usage: dotfiles COMMAND [options]"
     assert_includes stdout, "setup"
     assert_includes stdout, "refresh"
     assert_includes stdout, "--dry-run"
@@ -23,7 +23,7 @@ class InstallTest < DotfilesTestCase
     assert_equal 64, status.exitstatus
     assert_empty stdout
     assert_includes stderr, "COMMAND must be setup or refresh"
-    assert_includes stderr, "Usage: install.rb COMMAND [options]"
+    assert_includes stderr, "Usage: dotfiles COMMAND [options]"
   end
 
   def test_unknown_command_prints_help_and_exits_with_usage_error
@@ -90,6 +90,8 @@ class InstallTest < DotfilesTestCase
     assert status.success?, stderr
     refute_includes stdout, "Apply this plan?"
     assert_symlink File.join(home, ".gitconfig"), to: File.expand_path("../git/gitconfig", __dir__)
+    assert_symlink File.join(home, ".local/bin/dotfiles"), to: File.expand_path("../bin/dotfiles", __dir__)
+    assert_includes stdout, "Run dotfiles refresh to update your configuration"
   end
 
   private
@@ -102,7 +104,7 @@ class InstallTest < DotfilesTestCase
   end
 
   def run_install(*arguments, stdin_data: "", home: nil, path: nil)
-    install = File.expand_path("../install.rb", __dir__)
+    install = File.expand_path("../bin/dotfiles", __dir__)
     environment = {}
     environment["HOME"] = home if home
     environment["PATH"] = path if path

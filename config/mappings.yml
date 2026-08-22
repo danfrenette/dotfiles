@@ -1,4 +1,6 @@
 mappings:
+  - source: bin/dotfiles
+    target: .local/bin/dotfiles
   - source: git/gitconfig
     target: .gitconfig
   - source: git/gitignore

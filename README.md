@@ -36,16 +36,16 @@ This will:
 bundle install
 
 # Full installation
-./install.rb setup
+bin/dotfiles setup
 
 # Refresh dotfiles and skills on an existing machine
-./install.rb refresh
+dotfiles refresh
 
 # Dry run (shows what would be backed up/replaced)
-./install.rb setup --dry-run
+bin/dotfiles setup --dry-run
 
 # Preview a routine refresh
-./install.rb refresh --dry-run
+dotfiles refresh --dry-run
 ```
 
 ### Development
@@ -67,17 +67,17 @@ bundle exec rake standard   # Run linter
 
 ## Agent Skills
 
-Run `./install.rb refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
+Run `dotfiles refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
 
 ## Adding New Dotfiles
 
 1. Add source files to the appropriate directory
 2. Update `lib/config.rb` with the new mappings
-3. Run `./install.rb refresh` to create symlinks and refresh skills
+3. Run `dotfiles refresh` to create symlinks and refresh skills
 
 ## Verification
 
-Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb setup --dry-run`, `./install.rb refresh --dry-run`, and `bundle exec rake` to verify the setup safely. Setup installs baseline technology and then personal configuration; Refresh updates dotfiles and skills on an already set-up machine. Do not use `--yes` unless you intend to apply the complete selected workflow.
+Use `./bootstrap.sh --help`, `bin/dotfiles --help`, `bin/dotfiles setup --dry-run`, `dotfiles refresh --dry-run`, and `bundle exec rake` to verify the setup safely. Setup installs baseline technology and then personal configuration; Refresh updates dotfiles and skills on an already set-up machine. Do not use `--yes` unless you intend to apply the complete selected workflow.
 
 ## Backup Behavior
 

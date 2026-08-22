@@ -63,7 +63,7 @@ class BootstrapTest < DotfilesTestCase
 
     assert status.success?, stderr
     assert_includes File.readlines(log, chomp: true),
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} setup --dry-run"
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../bin/dotfiles", __dir__)} setup --dry-run"
     refute File.readlines(log, chomp: true).any? { |line| line.match?(/brew (install|upgrade)|rbenv install/) }
   end
 
@@ -250,7 +250,7 @@ class BootstrapTest < DotfilesTestCase
     refute calls.any? { |line| line.match?(/brew (install|upgrade)/) }
     refute calls.any? { |line| line.start_with?("rbenv install") }
     assert_includes calls,
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} setup"
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../bin/dotfiles", __dir__)} setup"
   end
 
   def test_known_homebrew_candidates_apply_shellenv_to_current_process

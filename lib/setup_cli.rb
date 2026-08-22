@@ -43,7 +43,7 @@ class SetupCLI
   def option_parser
     OptionParser.new do |parser|
       parser.banner = <<~USAGE
-        Usage: install.rb COMMAND [options]
+        Usage: dotfiles COMMAND [options]
 
         Commands:
             setup                         Set up a new machine
