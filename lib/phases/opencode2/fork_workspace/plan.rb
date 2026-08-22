@@ -33,14 +33,9 @@ module Phases
           [bun, "run", "--cwd", checkout, "dev:web:live"]
         end
 
-        def items
-          [
-            {
-              type: :source,
-              meta: {repository: repository, branch: branch, checkout: checkout, command: source_command}
-            },
-            {type: :dependencies, meta: {runtime: bun, version: bun_version, command: dependency_command}}
-          ]
+        def report_to(reporter)
+          reporter.report_planned(:source, source_command.join(" "))
+          reporter.report_planned(:deps, dependency_command.join(" "))
         end
       end
     end

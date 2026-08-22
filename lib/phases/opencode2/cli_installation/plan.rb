@@ -42,17 +42,15 @@ module Phases
           [executable, "service", "start"]
         end
 
-        def items
-          [
-            {type: :package_manager, meta: {name: "pnpm", path: package_manager}},
-            {type: :package, meta: {specification: package_specification, channel: channel}},
-            {
-              type: :destination,
-              meta: {package_directory: global_dir, binary_directory: bin_dir, executable: executable}
-            },
-            {type: :install, meta: {command: install_command, environment: environment}},
-            {type: :verify, meta: {command: verification_command}}
-          ]
+        def report_to(reporter)
+          reporter.report_planned(:ok, "pnpm executable: #{package_manager}")
+          reporter.report_planned(:pkg, "#{package_specification} (prerelease channel: #{channel})")
+          reporter.report_planned(
+            :dest,
+            "#{executable} (packages: #{global_dir}, binaries: #{bin_dir})"
+          )
+          reporter.report_planned(:run, install_command.join(" "))
+          reporter.report_planned(:check, verification_command.join(" "))
         end
       end
     end

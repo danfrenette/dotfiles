@@ -30,8 +30,7 @@ class BootstrapTest < DotfilesTestCase
     )
 
     assert status.success?, stderr
-    assert_includes stdout, "Usage: install.rb [options]"
-    assert_includes stdout, "--only PHASE"
+    assert_includes stdout, "Usage: bootstrap.sh [options]"
     assert_empty stderr
     refute File.exist?(log)
   end
@@ -57,8 +56,6 @@ class BootstrapTest < DotfilesTestCase
         environment,
         "bash",
         bootstrap,
-        "--only",
-        "mappings",
         "--dry-run",
         chdir: create_dir("caller")
       )
@@ -66,56 +63,8 @@ class BootstrapTest < DotfilesTestCase
 
     assert status.success?, stderr
     assert_includes File.readlines(log, chomp: true),
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only mappings --dry-run"
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} setup --dry-run"
     refute File.readlines(log, chomp: true).any? { |line| line.match?(/brew (install|upgrade)|rbenv install/) }
-  end
-
-  def test_accepts_and_forwards_opencode2_dry_run_when_prerequisites_exist
-    bin = create_dir("bin")
-    log = tmp_path("commands.log")
-    create_fake_brew(bin)
-    create_fake_rbenv(bin)
-
-    _stdout, stderr, status = run_bootstrap(
-      base_environment(bin, log).merge("INSTALLED_RUBY" => "4.0.3"),
-      "--only", "opencode2", "--dry-run"
-    )
-
-    assert status.success?, stderr
-    assert_includes File.readlines(log, chomp: true),
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only opencode2 --dry-run"
-  end
-
-  def test_accepts_and_forwards_neovim_dry_run_when_prerequisites_exist
-    bin = create_dir("bin")
-    log = tmp_path("commands.log")
-    create_fake_brew(bin)
-    create_fake_rbenv(bin)
-
-    _stdout, stderr, status = run_bootstrap(
-      base_environment(bin, log).merge("INSTALLED_RUBY" => "4.0.3"),
-      "--only", "neovim", "--dry-run"
-    )
-
-    assert status.success?, stderr
-    assert_includes File.readlines(log, chomp: true),
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only neovim --dry-run"
-  end
-
-  def test_accepts_and_forwards_skills_dry_run_when_prerequisites_exist
-    bin = create_dir("bin")
-    log = tmp_path("commands.log")
-    create_fake_brew(bin)
-    create_fake_rbenv(bin)
-
-    _stdout, stderr, status = run_bootstrap(
-      base_environment(bin, log).merge("INSTALLED_RUBY" => "4.0.3"),
-      "--only", "skills", "--dry-run"
-    )
-
-    assert status.success?, stderr
-    assert_includes File.readlines(log, chomp: true),
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} --only skills --dry-run"
   end
 
   def test_missing_homebrew_runs_official_installer_in_normal_mode
@@ -176,7 +125,7 @@ class BootstrapTest < DotfilesTestCase
 
     stdout, stderr, status = run_bootstrap(
       base_environment(bin, log).merge("HOMEBREW_CANDIDATES" => tmp_path("missing-brew")),
-      "--only", "homebrew", "--dry-run"
+      "--dry-run"
     )
 
     assert status.success?, stderr
@@ -301,7 +250,7 @@ class BootstrapTest < DotfilesTestCase
     refute calls.any? { |line| line.match?(/brew (install|upgrade)/) }
     refute calls.any? { |line| line.start_with?("rbenv install") }
     assert_includes calls,
-      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)}"
+      "RBENV_VERSION=4.0.3 rbenv exec ruby #{File.expand_path("../install.rb", __dir__)} setup"
   end
 
   def test_known_homebrew_candidates_apply_shellenv_to_current_process

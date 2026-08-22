@@ -1,5 +1,6 @@
 # Taps
 tap "schpet/tap"
+tap "oven-sh/bun"
 
 # ==============================================================================
 # CLI Tools
@@ -18,6 +19,8 @@ brew "jq"               # JSON processor
 brew "neovim"
 brew "tmux"
 brew "rbenv"
+brew "pnpm"
+brew "oven-sh/bun/bun"
 brew "zplug"            # Zsh plugin manager
 brew "thefuck"          # Auto-correct previous command
 brew "tig"              # Text-mode git interface

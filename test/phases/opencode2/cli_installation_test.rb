@@ -45,8 +45,8 @@ class OpenCode2CLIInstallationTest < DotfilesTestCase
 
     assert File.directory?(@global_dir)
     assert File.directory?(@bin_dir)
-    assert_equal @executable, runner.calls.last.first
-    assert_equal [@executable, "--version"], runner.calls.last
+    assert_equal [@executable, "--version"], runner.calls[-2]
+    assert_equal [@executable, "service", "start"], runner.calls.last
   end
 
   def test_missing_durable_pnpm_fails_before_mutation
@@ -104,6 +104,26 @@ class OpenCode2CLIInstallationTest < DotfilesTestCase
 
     assert_equal "OpenCode2 verification exited with a nonzero status", error.message
     assert_equal [@executable, "--version"], runner.calls.last
+  end
+
+  def test_nonzero_service_start_fails
+    runner = TestCommandRunner.new(
+      results: [true, true, false],
+      executables: {"pnpm" => @pnpm},
+      on_run: lambda do |command, _options|
+        next unless command.first == @pnpm
+
+        FileUtils.mkdir_p(@bin_dir)
+        File.write(@executable, "#!/bin/sh\n")
+        FileUtils.chmod("+x", @executable)
+      end
+    )
+    installation = build_installation(runner)
+
+    error = assert_raises(Phases::OpenCode2::Error) { installation.apply(installation.plan) }
+
+    assert_equal "OpenCode2 service exited with a nonzero status", error.message
+    assert_equal [@executable, "service", "start"], runner.calls.last
   end
 
   private

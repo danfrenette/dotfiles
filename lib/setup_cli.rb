@@ -14,6 +14,7 @@ class SetupCLI
 
   def run
     parser = option_parser
+    command = arguments.shift unless arguments.first&.start_with?("-")
     parser.parse!(arguments)
 
     if help
@@ -21,8 +22,14 @@ class SetupCLI
       return 0
     end
 
+    raise OptionParser::MissingArgument, "COMMAND must be setup or refresh" unless command
+
+    unless %w[setup refresh].include?(command)
+      raise OptionParser::InvalidArgument, "unknown command: #{command}"
+    end
+
     validate_arguments
-    Installer.run(options: SetupOptions.new(**options))
+    Installer.run(options: SetupOptions.new(workflow: command.to_sym, **options))
   rescue OptionParser::ParseError, PhaseCatalog::UnsupportedPhase, ArgumentError => parse_error
     error.puts parse_error.message
     error.puts parser
@@ -35,17 +42,15 @@ class SetupCLI
 
   def option_parser
     OptionParser.new do |parser|
-      parser.banner = "Usage: install.rb [options]"
+      parser.banner = <<~USAGE
+        Usage: install.rb COMMAND [options]
+
+        Commands:
+            setup                         Set up a new machine
+            refresh                       Update dotfiles and skills
+      USAGE
       parser.on("--dry-run", "Print the plan without applying it") { options[:dry_run] = true }
       parser.on("--yes", "Apply the plan without confirmation") { options[:yes] = true }
-      parser.on("--only PHASES", "Run only comma-separated phases") do |value|
-        raise OptionParser::InvalidArgument, "--only may only be specified once" if options.key?(:only)
-
-        phases = value.split(",", -1).map(&:strip)
-        raise OptionParser::InvalidArgument, "--only contains an empty phase" if phases.any?(&:empty?)
-
-        options[:only] = phases.map(&:to_sym)
-      end
       parser.on("-h", "--help", "Show this help") { @help = true }
     end
   end

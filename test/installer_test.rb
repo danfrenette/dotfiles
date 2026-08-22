@@ -569,7 +569,7 @@ class InstallerTest < DotfilesTestCase
     assert @reporter.completion_reported
   end
 
-  def test_opencode2_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
+  def test_opencode2_application_failure_stops_setup_before_later_phases
     source, target = create_mapping("gitconfig")
     command_runner = TestCommandRunner.new(
       executables: {"pnpm" => "/fake/pnpm", "git" => "/fake/git", "bun" => "/fake/bun", "nvim" => "/fake/nvim"}
@@ -582,13 +582,13 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 1, status
-    assert_symlink target, to: source
-    assert_includes @reporter.phases, "Installing Neovim plugins"
+    refute File.exist?(target)
+    refute @reporter.completion_reported
     assert_includes @reporter.warnings,
       "OpenCode2 executable was not installed at #{tmp_path("home/.local/bin/opencode2")}"
   end
 
-  def test_opencode2_preflight_failure_allows_default_mappings_and_later_phases_but_returns_nonzero
+  def test_opencode2_preflight_failure_stops_setup_before_later_phases
     source, target = create_mapping("gitconfig")
     runner = TestCommandRunner.new(executables: {"nvim" => "/fake/nvim", "pnpm" => "/fake/pnpm"})
 
@@ -599,13 +599,11 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 1, status
-    assert_symlink target, to: source
-    assert_includes @reporter.phases, "Installing Neovim plugins"
+    refute File.exist?(target)
+    refute_includes @reporter.phases, "Installing Neovim plugins"
+    refute @reporter.completion_reported
     assert_includes @reporter.warnings, "Git not found; install Git before running the OpenCode2 phase"
-    assert_equal [
-      ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"],
-      ["/fake/nvim", "--headless", "+PlugInstall", "+qa"]
-    ], runner.calls
+    assert_empty runner.calls
   end
 
   def test_declined_opencode2_confirmation_mutates_and_executes_nothing
@@ -658,8 +656,8 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 1, status
     refute File.exist?(target)
-    assert_includes @reporter.phases, "Installing skills"
-    assert_includes @reporter.phases, "Installing Neovim plugins"
+    assert_equal ["Installing Homebrew packages", "Linking dotfiles"], @reporter.phases
+    refute @reporter.completion_reported
   end
 
   def test_default_setup_runs_full_setup_without_mapping_confirmation
@@ -682,6 +680,54 @@ class InstallerTest < DotfilesTestCase
     assert_symlink target, to: source
   end
 
+  def test_setup_resolves_dependencies_after_homebrew_establishes_them
+    brewfile = create_file("dotfiles/Brewfile")
+    plugin_manager_path = tmp_path("home/.local/share/nvim/site/autoload/plug.vim")
+    checkout = tmp_path("home/code/opencode")
+    executable = tmp_path("home/.local/bin/opencode2")
+    executables = {"brew" => "/fake/brew"}
+    runner = TestCommandRunner.new(
+      executables: executables,
+      on_run: lambda do |command, _options|
+        case command.first
+        when "/fake/brew"
+          executables.merge!(
+            "pnpm" => "/fake/pnpm",
+            "git" => "/fake/git",
+            "bun" => "/fake/bun",
+            "nvim" => "/fake/nvim",
+            "curl" => "/fake/curl"
+          )
+        when "/fake/pnpm"
+          FileUtils.mkdir_p(File.dirname(executable))
+          File.write(executable, "#!/bin/sh\n")
+          FileUtils.chmod("+x", executable)
+        when "/fake/git"
+          create_opencode_fork(checkout)
+        when "/fake/curl"
+          FileUtils.mkdir_p(File.dirname(plugin_manager_path))
+          File.write(plugin_manager_path, "vim-plug")
+        end
+      end
+    )
+
+    status = build_installer(
+      options: {skip_brew: false, yes: true},
+      config: {
+        brewfile_path: brewfile,
+        nvim_plugin_manager_path: plugin_manager_path,
+        opencode_fork_checkout: checkout
+      },
+      runtime: {command_runner: runner}
+    ).install
+
+    assert_equal 0, status
+    assert_operator runner.calls.index(["/fake/brew", "bundle", "--file=#{brewfile}"]), :<,
+      runner.calls.index { |command| command.first == "/fake/pnpm" }
+    assert_includes runner.calls, ["/fake/curl", "-fLo", plugin_manager_path, Phases::Neovim::PLUGIN_MANAGER_URL]
+    assert @reporter.completion_reported
+  end
+
   def test_default_dry_run_reports_full_setup_without_execution
     source, target = create_mapping("gitconfig")
     brewfile = create_file("dotfiles/Brewfile")
@@ -699,12 +745,12 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [
-      "Installing Homebrew packages", "Installing OpenCode2", "Linking dotfiles", "Installing skills", "Installing Neovim plugins"
-    ], @reporter.phases
+    assert_equal ["Installing Homebrew packages", "Linking dotfiles"], @reporter.phases
+    assert_equal :setup, @reporter.workflows.first.fetch(:name)
+    assert_equal %i[homebrew opencode2 mappings skills neovim],
+      @reporter.workflows.first.fetch(:phases).map(&:first)
     assert_empty command_runner.calls
     refute File.exist?(target)
-    assert @reporter.actions.any? { |action| action[:type] == :neovim }
     assert @reporter.dry_completion_reported
   end
 
@@ -725,8 +771,7 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    neovim = @reporter.actions.find { |action| action[:type] == :neovim }
-    assert_equal ["/fake/nvim", "--headless", "+PlugInstall", "+qa"], neovim[:meta][:command]
+    assert_includes @reporter.workflows.first.fetch(:phases).map(&:first), :neovim
     refute File.exist?(targets.first)
   end
 
@@ -739,22 +784,38 @@ class InstallerTest < DotfilesTestCase
       mappings_path: manifest_path
     )
     runtime = SetupRuntime.new(reporter: @reporter)
+    workflows = {test: {phases: [:mappings], preflight: [:mappings]}}
 
     Installer.new(
-      options: SetupOptions.new(only: :mappings, yes: true),
+      options: SetupOptions.new(workflow: :test, yes: true),
       prompt: runtime.prompt,
       reporter: runtime.reporter,
-      catalog: PhaseCatalog.build(config: config, runtime: runtime)
+      catalog: PhaseCatalog.build(config: config, runtime: runtime, workflows: workflows)
     )
   end
 
   def build_installer(options: {}, config: {}, runtime: {})
     skip_brew = options.fetch(:skip_brew, true)
     options.delete(:skip_brew)
+    selected = Array(options.delete(:only))
+    if selected.empty? && !skip_brew
+      workflow_name = :setup
+      workflows = PhaseCatalog::WORKFLOWS
+    else
+      selected = %i[opencode2 mappings skills neovim] if selected.empty?
+      workflow_name = :test
+      workflows = {
+        workflow_name => {
+          phases: selected,
+          preflight: selected
+        }
+      }
+    end
     setup_config = TestConfig.new(
       mappings: config.fetch(:mappings, []),
       brewfile_path: config.fetch(:brewfile_path, "/nonexistent/Brewfile"),
       nvim_configuration_targets: config.fetch(:nvim_configuration_targets, []),
+      nvim_plugin_manager_path: config.fetch(:nvim_plugin_manager_path, create_file("installed/plug.vim")),
       opencode2_global_dir: config.fetch(:opencode2_global_dir, tmp_path("home/.local/share/pnpm/global")),
       user_bin_dir: config.fetch(:user_bin_dir, tmp_path("home/.local/bin")),
       opencode_fork_checkout: config.fetch(:opencode_fork_checkout, tmp_path("home/code/opencode")),
@@ -764,11 +825,10 @@ class InstallerTest < DotfilesTestCase
     runtime = {command_runner: successful_full_command_runner}.merge(runtime) unless runtime[:command_runner]
     runtime = {prompt: TestPrompt.new}.merge(runtime)
     setup_runtime = SetupRuntime.new(reporter: @reporter, **runtime)
-    catalog = PhaseCatalog.build(config: setup_config, runtime: setup_runtime)
-    options[:only] = catalog.names - [:homebrew] if skip_brew && !options[:only]
+    catalog = PhaseCatalog.build(config: setup_config, runtime: setup_runtime, workflows: workflows)
 
     Installer.new(
-      options: SetupOptions.new(**options),
+      options: SetupOptions.new(workflow: workflow_name, **options),
       prompt: setup_runtime.prompt,
       reporter: setup_runtime.reporter,
       catalog: catalog

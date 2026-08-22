@@ -4,46 +4,84 @@ require "test_helper"
 require "phase_catalog"
 
 class PhaseCatalogTest < DotfilesTestCase
-  Phase = Struct.new(:name)
   RecordingPhase = Struct.new(:name, :events) do
     def prepare
-      events << name
-      name
+      events << [:prepare, name]
+      PreparedPhase.new(name) { events << [:apply, name] }
     end
   end
 
-  def test_names_and_selection_preserve_catalog_order
-    catalog = PhaseCatalog.new([Phase.new(:first), Phase.new(:second), Phase.new(:third)])
+  def test_instance_build_initializes_and_returns_the_catalog
+    reporter = Reporters::TestReporter.new
+    catalog = PhaseCatalog.new(
+      config: TestConfig.new,
+      runtime: SetupRuntime.new(reporter: reporter)
+    )
 
-    assert_equal [:first, :second, :third], catalog.names
-    assert_equal [:first, :third], catalog.phases_for([:third, :first]).map(&:name)
+    result = catalog.build
+
+    assert_same catalog, result
+    assert_equal %i[homebrew opencode2 mappings skills neovim], catalog.names
   end
 
-  def test_selection_rejects_an_unsupported_phase
-    catalog = PhaseCatalog.new([Phase.new(:first)])
+  def test_setup_workflow_preflights_independent_phases_then_applies_in_catalog_order
+    events = []
+    reporter = Reporters::TestReporter.new
+    phases = %i[homebrew opencode2 mappings skills neovim].map { |name| RecordingPhase.new(name, events) }
+    catalog = PhaseCatalog.new(phases, reporter: reporter, reset_planning: -> { events << :reset })
 
-    error = assert_raises(PhaseCatalog::UnsupportedPhase) { catalog.phases_for([:missing]) }
+    workflow = catalog.workflow(:setup)
+    preparations = workflow.prepare
 
-    assert_equal "Unsupported phase: missing", error.message
+    assert_equal [:reset, [:prepare, :homebrew], [:prepare, :mappings]], events
+
+    workflow.apply(preparations)
+
+    assert_equal [
+      :reset,
+      [:prepare, :homebrew],
+      [:prepare, :mappings],
+      [:apply, :homebrew],
+      [:prepare, :opencode2],
+      [:apply, :opencode2],
+      [:apply, :mappings],
+      [:prepare, :skills],
+      [:apply, :skills],
+      [:prepare, :neovim],
+      [:apply, :neovim]
+    ], events
+  end
+
+  def test_refresh_contains_only_mappings_and_skills
+    events = []
+    reporter = Reporters::TestReporter.new
+    phases = %i[homebrew opencode2 mappings skills neovim].map { |name| RecordingPhase.new(name, events) }
+    workflow = PhaseCatalog.new(phases, reporter: reporter).workflow(:refresh)
+
+    preparations = workflow.prepare
+    workflow.apply(preparations)
+
+    assert_equal [
+      [:prepare, :mappings],
+      [:prepare, :skills],
+      [:apply, :mappings],
+      [:apply, :skills]
+    ], events
   end
 
   def test_catalog_rejects_duplicate_names
-    error = assert_raises(ArgumentError) do
-      PhaseCatalog.new([Phase.new(:duplicate), Phase.new(:duplicate)])
-    end
+    phases = [RecordingPhase.new(:homebrew, []), RecordingPhase.new(:homebrew, [])]
 
-    assert_equal "Duplicate catalog phase: duplicate", error.message
+    error = assert_raises(ArgumentError) { PhaseCatalog.new(phases, workflows: {}) }
+
+    assert_equal "Duplicate catalog phase: homebrew", error.message
   end
 
-  def test_prepare_resets_planning_state_before_preparing_in_order
-    events = []
-    phases = [
-      RecordingPhase.new(:first, events),
-      RecordingPhase.new(:second, events)
-    ]
-    catalog = PhaseCatalog.new(phases, reset_planning: -> { events << :reset })
+  def test_unknown_workflow_is_rejected
+    catalog = PhaseCatalog.new([], workflows: {})
 
-    assert_equal [:first, :second], catalog.prepare(phases)
-    assert_equal [:reset, :first, :second], events
+    error = assert_raises(PhaseCatalog::UnsupportedWorkflow) { catalog.workflow(:missing) }
+
+    assert_equal "Unsupported workflow: missing", error.message
   end
 end

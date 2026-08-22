@@ -53,6 +53,10 @@ module Phases
         result = command_runner.run(*plan.verification_command)
         raise Error, "OpenCode2 verification could not start" if result.nil?
         raise Error, "OpenCode2 verification exited with a nonzero status" unless result
+
+        result = command_runner.run(*plan.service_command)
+        raise Error, "OpenCode2 service could not start" if result.nil?
+        raise Error, "OpenCode2 service exited with a nonzero status" unless result
       rescue SystemCallError => error
         raise Error, "OpenCode2 filesystem operation failed: #{error.message}"
       end

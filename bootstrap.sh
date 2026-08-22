@@ -5,14 +5,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUBY_VERSION="$(tr -d '[:space:]' < "$ROOT/.ruby-version")"
 DRY_RUN=false
 HELP=false
-ONLY_PHASES=()
 
 print_usage() {
   cat <<'USAGE'
-Usage: install.rb [options]
+Usage: bootstrap.sh [options]
         --dry-run                    Print the plan without applying it
         --yes                        Apply the plan without confirmation
-        --only PHASE                 Run only homebrew, opencode2, mappings, neovim, or skills
     -h, --help                       Show this help
 USAGE
 }
@@ -33,16 +31,6 @@ validate_arguments() {
       --yes)
         shift
         ;;
-      --only)
-        [[ $# -gt 1 ]] || usage_error "missing argument: --only"
-        ONLY_PHASES+=("$2")
-        shift 2
-        ;;
-      --only=*)
-        ONLY_PHASES+=("${1#--only=}")
-        [[ -n "${ONLY_PHASES[-1]}" ]] || usage_error "missing argument: --only"
-        shift
-        ;;
       -h|--help)
         HELP=true
         shift
@@ -60,12 +48,6 @@ validate_arguments() {
     print_usage
     exit 0
   fi
-  for phase in "${ONLY_PHASES[@]:-}"; do
-    [[ -n "$phase" ]] || continue
-    if [[ "$phase" != "homebrew" && "$phase" != "opencode2" && "$phase" != "mappings" && "$phase" != "neovim" && "$phase" != "skills" ]]; then
-      usage_error "Unsupported phase: $phase"
-    fi
-  done
 }
 
 validate_arguments "$@"
@@ -165,4 +147,4 @@ fi
 
 echo ""
 echo "=== Running installer with Ruby $RUBY_VERSION ==="
-RBENV_VERSION="$RUBY_VERSION" rbenv exec ruby "$ROOT/install.rb" "$@"
+RBENV_VERSION="$RUBY_VERSION" rbenv exec ruby "$ROOT/install.rb" setup "$@"

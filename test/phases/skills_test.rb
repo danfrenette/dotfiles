@@ -22,7 +22,7 @@ class SkillsPhaseTest < DotfilesTestCase
   def test_missing_package_manager_fails_during_planning
     error = assert_raises(Phases::Skills::Error) { build_phase.prepare }
 
-    assert_equal "pnpm not found; install pnpm before running the skills phase", error.message
+    assert_equal "pnpm not found; run ./install.rb setup before refresh", error.message
   end
 
   def test_apply_distinguishes_command_failure_from_failure_to_start

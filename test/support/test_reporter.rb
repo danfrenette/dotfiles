@@ -2,14 +2,20 @@
 
 module Reporters
   class TestReporter
-    attr_reader :phases, :actions, :warnings, :completion_reported, :dry_completion_reported
+    attr_reader :workflows, :phases, :actions, :planned_actions, :warnings, :completion_reported, :dry_completion_reported
 
     def initialize
+      @workflows = []
       @phases = []
       @actions = []
+      @planned_actions = []
       @warnings = []
       @completion_reported = false
       @dry_completion_reported = false
+    end
+
+    def report_workflow(name, phases)
+      workflows << {name: name, phases: phases}
     end
 
     def report_phase(name)
@@ -18,6 +24,10 @@ module Reporters
 
     def report_action(type, meta = {})
       actions << {type: type, meta: meta}
+    end
+
+    def report_planned(label, message)
+      planned_actions << {label: label, message: message}
     end
 
     def report_completion(_steps = [])
@@ -37,8 +47,10 @@ module Reporters
     end
 
     def clear
+      workflows.clear
       phases.clear
       actions.clear
+      planned_actions.clear
       warnings.clear
       @completion_reported = false
       @dry_completion_reported = false

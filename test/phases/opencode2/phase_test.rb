@@ -37,11 +37,9 @@ class OpenCode2PhaseTest < DotfilesTestCase
     phase.prepare.apply
 
     assert_equal ["Installing OpenCode2"], reporter.phases
-    assert_equal [
-      :package_manager, :package, :destination, :install, :verify,
-      :source, :dependencies, :service, :workflow
-    ], reporter.action_types
-    assert_equal [pnpm, executable, git, bun], runner.calls.map(&:first)
+    assert_equal %i[ok pkg dest run check service source deps ready],
+      reporter.planned_actions.map { |action| action.fetch(:label) }
+    assert_equal [pnpm, executable, executable, git, bun], runner.calls.map(&:first)
   end
 
   def test_plan_is_an_immutable_aggregate_class

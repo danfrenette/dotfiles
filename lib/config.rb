@@ -32,6 +32,10 @@ class Config
     mappings.filter_map { |mapping| mapping.target if mapping.source.start_with?("#{source_root}/") }
   end
 
+  def nvim_plugin_manager_path
+    home_path(".local", "share", "nvim", "site", "autoload", "plug.vim")
+  end
+
   def brewfile_path
     dotfiles_path("Brewfile")
   end

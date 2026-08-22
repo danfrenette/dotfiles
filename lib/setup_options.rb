@@ -2,24 +2,22 @@
 
 class SetupOptions
   DEFAULTS = {
+    workflow: nil,
     dry_run: false,
-    yes: false,
-    only: []
+    yes: false
   }.freeze
 
-  attr_reader :dry_run,
-    :yes,
-    :only
+  attr_reader :workflow,
+    :dry_run,
+    :yes
 
   def initialize(**values)
     validate_keys(values)
     options = DEFAULTS.merge(values)
-    selected = Array(options.fetch(:only))
-    validate_unique_phases(selected)
 
+    @workflow = options.fetch(:workflow)
     @dry_run = options.fetch(:dry_run)
     @yes = options.fetch(:yes)
-    @only = selected.freeze
 
     freeze
   end
@@ -31,10 +29,5 @@ class SetupOptions
     return if unknown.empty?
 
     raise ArgumentError, "Unknown setup options: #{unknown.join(", ")}"
-  end
-
-  def validate_unique_phases(phases)
-    duplicate = phases.find { |phase| phases.count(phase) > 1 }
-    raise ArgumentError, "Duplicate phase: #{duplicate}" if duplicate
   end
 end

@@ -36,13 +36,16 @@ This will:
 bundle install
 
 # Full installation
-./install.rb
+./install.rb setup
+
+# Refresh dotfiles and skills on an existing machine
+./install.rb refresh
 
 # Dry run (shows what would be backed up/replaced)
-./install.rb --dry-run
+./install.rb setup --dry-run
 
-# Select exact phases without interactive selection
-./install.rb --only mappings,skills
+# Preview a routine refresh
+./install.rb refresh --dry-run
 ```
 
 ### Development
@@ -64,17 +67,17 @@ bundle exec rake standard   # Run linter
 
 ## Agent Skills
 
-Run `./install.rb --only skills` to launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
+Run `./install.rb refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
 
 ## Adding New Dotfiles
 
 1. Add source files to the appropriate directory
 2. Update `lib/config.rb` with the new mappings
-3. Run `./install.rb --only mappings` to create symlinks
+3. Run `./install.rb refresh` to create symlinks and refresh skills
 
 ## Verification
 
-Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb --dry-run`, and `bundle exec rake` to verify the setup safely. The default installer lets you select from Homebrew, OpenCode2, mappings, skills, and Neovim; pass a comma-separated list to `--only` to avoid interactive selection. Do not use `--yes` unless you intend to apply every selected phase.
+Use `./bootstrap.sh --help`, `./install.rb --help`, `./install.rb setup --dry-run`, `./install.rb refresh --dry-run`, and `bundle exec rake` to verify the setup safely. Setup installs baseline technology and then personal configuration; Refresh updates dotfiles and skills on an already set-up machine. Do not use `--yes` unless you intend to apply the complete selected workflow.
 
 ## Backup Behavior
 

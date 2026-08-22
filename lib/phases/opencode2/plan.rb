@@ -11,21 +11,17 @@ module Phases
         freeze
       end
 
-      def items
-        cli.items + fork.items + [
-          {
-            type: :service,
-            meta: {command: cli.service_command, effect: "start the installed service that owns shared session data"}
-          },
-          {
-            type: :workflow,
-            meta: {
-              name: "dev:web:live",
-              command: fork.launch_command,
-              effect: "proxy to the installed opencode2 service and shared sessions"
-            }
-          }
-        ]
+      def report_to(reporter)
+        cli.report_to(reporter)
+        reporter.report_planned(
+          :service,
+          "#{cli.service_command.join(" ")} (start the installed service that owns shared session data)"
+        )
+        fork.report_to(reporter)
+        reporter.report_planned(
+          :ready,
+          "#{fork.launch_command.join(" ")} (proxy to the installed opencode2 service and shared sessions)"
+        )
       end
     end
   end

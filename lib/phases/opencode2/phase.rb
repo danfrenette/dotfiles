@@ -38,7 +38,7 @@ module Phases
         reporter.report_phase("Installing OpenCode2")
 
         Plan.new(cli: cli_installation.plan, fork: fork_workspace.plan).tap do |plan|
-          plan.items.each { |item| reporter.report_action(item.fetch(:type), item.fetch(:meta)) }
+          plan.report_to(reporter)
         end
       end
 

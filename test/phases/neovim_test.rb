@@ -9,6 +9,7 @@ class NeovimPhaseTest < DotfilesTestCase
   def setup
     super
     @targets = [tmp_path("home/.config/nvim/init.lua"), tmp_path("home/.config/nvim/lua/options.lua")]
+    @plugin_manager_path = create_file("home/.local/share/nvim/site/autoload/plug.vim")
     @reporter = Reporters::TestReporter.new
   end
 
@@ -54,12 +55,43 @@ class NeovimPhaseTest < DotfilesTestCase
     end
   end
 
+  def test_apply_installs_missing_vim_plug_before_running_neovim
+    plugin_manager_path = tmp_path("new-home/.local/share/nvim/site/autoload/plug.vim")
+    curl = "/usr/bin/curl"
+    runner = TestCommandRunner.new(
+      executables: {"nvim" => "/fake/nvim", "curl" => curl},
+      on_run: lambda do |command, _options|
+        next unless command.first == curl
+
+        FileUtils.mkdir_p(File.dirname(plugin_manager_path))
+        File.write(plugin_manager_path, "vim-plug")
+      end
+    )
+    @plugin_manager_path = plugin_manager_path
+    phase = build_phase(command_runner: runner)
+
+    preparation = phase.prepare
+    plan = preparation.plan
+    preparation.apply
+
+    assert_equal [
+      curl,
+      "-fLo",
+      plugin_manager_path,
+      Phases::Neovim::PLUGIN_MANAGER_URL
+    ], plan.plugin_manager_command
+    assert_equal plan.plugin_manager_command, runner.calls.first
+    assert_equal plan.command, runner.calls.last
+    assert_equal "vim-plug", File.read(plugin_manager_path)
+  end
+
   private
 
   def build_phase(executables: {}, command_runner: nil, available_targets: @targets)
     runner = command_runner || TestCommandRunner.new(executables: executables)
     Phases::Neovim.new(
       load_configuration_targets: -> { @targets },
+      plugin_manager_path: @plugin_manager_path,
       availability: Availability.new(available_targets),
       command_runner: runner,
       reporter: @reporter

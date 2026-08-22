@@ -4,73 +4,84 @@ require "test_helper"
 require "installer"
 
 class InstallerWorkflowTest < DotfilesTestCase
-  class Phase
-    attr_reader :name
-
-    def initialize(name, events)
-      @name = name
-      @events = events
-    end
-
+  Phase = Struct.new(:name, :events) do
     def prepare
       events << [:prepare, name]
       PreparedPhase.new(name) { events << [:apply, name] }
     end
-
-    private
-
-    attr_reader :events
   end
 
-  def test_every_phase_subset_plans_then_applies_only_selected_phases_in_canonical_order
-    phases = catalog([]).names
+  def test_setup_establishes_prerequisites_before_preparing_dependent_phases
+    events = []
 
-    1.upto(phases.length) do |size|
-      phases.combination(size).each do |selected|
-        events = []
-        status = build_installer(selected, events, yes: true).install
-        expected = selected.map { |phase| [:prepare, phase] } + selected.map { |phase| [:apply, phase] }
+    status = build_installer(:setup, events, yes: true).install
 
-        assert_equal 0, status, "status for #{selected.inspect}"
-        assert_equal expected, events, "events for #{selected.inspect}"
-      end
-    end
+    assert_equal 0, status
+    assert_operator events.index([:apply, :homebrew]), :<, events.index([:prepare, :opencode2])
+    assert_operator events.index([:apply, :mappings]), :<, events.index([:prepare, :neovim])
   end
 
-  def test_selected_phases_share_one_confirmation
+  def test_refresh_preflights_then_applies_mappings_and_skills
+    events = []
+
+    status = build_installer(:refresh, events, yes: true).install
+
+    assert_equal 0, status
+    assert_equal [
+      [:prepare, :mappings],
+      [:prepare, :skills],
+      [:apply, :mappings],
+      [:apply, :skills]
+    ], events
+  end
+
+  def test_workflow_uses_one_confirmation
     events = []
     prompt = TestPrompt.new(true)
 
-    status = build_installer([:mappings, :skills], events, prompt: prompt).install
+    status = build_installer(:refresh, events, prompt: prompt).install
 
     assert_equal 0, status
-    assert_equal [[:prepare, :mappings], [:prepare, :skills], [:apply, :mappings], [:apply, :skills]], events
     assert_equal 1, prompt.confirmations
   end
 
-  def test_selection_order_does_not_change_canonical_execution_order
+  def test_failure_stops_setup_and_reports_no_completion
     events = []
+    reporter = Reporters::TestReporter.new
+    phases = standard_phases(events)
+    failing = phases.find { |phase| phase.name == :opencode2 }
+    def failing.prepare
+      raise Phases::Error, "OpenCode2 failed"
+    end
+    catalog = PhaseCatalog.new(phases, reporter: reporter)
+    installer = Installer.new(
+      options: SetupOptions.new(workflow: :setup, yes: true),
+      prompt: TestPrompt.new,
+      reporter: reporter,
+      catalog: catalog
+    )
 
-    status = build_installer([:neovim, :mappings], events, yes: true).install
+    status = installer.install
 
-    assert_equal 0, status
-    assert_equal [[:prepare, :mappings], [:prepare, :neovim], [:apply, :mappings], [:apply, :neovim]], events
+    assert_equal 1, status
+    assert_includes reporter.warnings, "OpenCode2 failed"
+    refute reporter.completion_reported
+    refute_includes events, [:apply, :mappings]
   end
 
   private
 
-  def build_installer(selected, events, yes: false, prompt: TestPrompt.new)
+  def build_installer(workflow, events, yes: false, prompt: TestPrompt.new)
+    reporter = Reporters::TestReporter.new
     Installer.new(
-      options: SetupOptions.new(only: selected, yes: yes),
+      options: SetupOptions.new(workflow: workflow, yes: yes),
       prompt: prompt,
-      reporter: Reporters::TestReporter.new,
-      catalog: catalog(events)
+      reporter: reporter,
+      catalog: PhaseCatalog.new(standard_phases(events), reporter: reporter)
     )
   end
 
-  def catalog(events)
-    PhaseCatalog.new([:homebrew, :opencode2, :mappings, :skills, :neovim].map do |name|
-      Phase.new(name, events)
-    end)
+  def standard_phases(events)
+    %i[homebrew opencode2 mappings skills neovim].map { |name| Phase.new(name, events) }
   end
 end

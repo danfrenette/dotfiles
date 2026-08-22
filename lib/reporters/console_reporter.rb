@@ -14,16 +14,8 @@ module Reporters
       unchanged: "[OK]",
       unchanged_copy: "[OK]",
       available: "[OK]",
-      package_manager: "[OK]",
       bundle: "[BREW]",
-      package: "[PKG]",
-      destination: "[DEST]",
       install: "[RUN]",
-      verify: "[CHECK]",
-      source: "[SOURCE]",
-      dependencies: "[DEPS]",
-      service: "[SERVICE]",
-      workflow: "[READY]",
       neovim: "[NVIM]",
       neovim_complete: "[OK]",
       skills: "[SKILLS]"
@@ -39,10 +31,23 @@ module Reporters
       output.puts ""
     end
 
+    def report_workflow(name, phases)
+      output.puts ""
+      output.puts "=== #{name.to_s.capitalize} workflow ==="
+      output.puts ""
+      phases.each do |phase, description|
+        output.puts "  [PLAN] #{phase}: #{description}"
+      end
+    end
+
     def report_action(type, meta = {})
       prefix = PREFIXES.fetch(type, "[???]")
       message = format_action(type, meta)
       output.puts "  #{prefix} #{message}"
+    end
+
+    def report_planned(label, message)
+      output.puts "  [#{label.to_s.upcase}] #{message}"
     end
 
     def report_completion(steps = [])
@@ -92,22 +97,10 @@ module Reporters
         "#{format_path(meta[:source])} -> #{meta[:target]} unchanged"
       when :available
         "Homebrew executable: #{meta[:path]}"
-      when :package_manager
-        "#{meta[:name]} executable: #{meta[:path]}"
       when :bundle
         "#{meta[:command].join(" ")} (#{meta[:effect]})"
-      when :package
-        "#{meta[:specification]} (prerelease channel: #{meta[:channel]})"
-      when :destination
-        "#{meta[:executable]} (packages: #{meta[:package_directory]}, binaries: #{meta[:binary_directory]})"
-      when :install, :verify
+      when :install
         meta[:command].join(" ")
-      when :source, :dependencies
-        meta[:command].join(" ")
-      when :service
-        "#{meta[:command].join(" ")} (#{meta[:effect]})"
-      when :workflow
-        "#{meta[:command].join(" ")} (#{meta[:effect]})"
       when :neovim
         "#{meta[:command].join(" ")} (configuration: #{meta[:configuration_targets].join(", ")})"
       when :neovim_complete
