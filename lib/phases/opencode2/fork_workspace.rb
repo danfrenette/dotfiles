@@ -2,6 +2,7 @@
 
 require "fileutils"
 require "json"
+require "rubygems/version"
 require_relative "error"
 require_relative "fork_workspace/plan"
 
@@ -10,7 +11,7 @@ module Phases
     class ForkWorkspace
       REPOSITORY = "https://github.com/danfrenette/opencode.git"
       BRANCH = "dan-dev"
-      MINIMUM_BUN_VERSION = [1, 3].freeze
+      MINIMUM_BUN_VERSION = Gem::Version.new("1.3")
       LIVE_WEB_SCRIPT = "bun run packages/app/script/dev-web-live.ts"
       LIVE_WEB_MARKERS = [
         "OPENCODE_DEV_SERVER_URL",
@@ -69,10 +70,9 @@ module Phases
       end
 
       def supported_bun_version?(version)
-        return false unless version&.match?(/\A\d+\.\d+(?:\.\d+)?\z/)
-
-        parts = version.split(".").map(&:to_i)
-        (parts <=> MINIMUM_BUN_VERSION) >= 0
+        Gem::Version.new(version) >= MINIMUM_BUN_VERSION
+      rescue ArgumentError
+        false
       end
 
       def validate_checkout

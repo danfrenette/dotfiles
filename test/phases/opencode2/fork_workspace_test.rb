@@ -26,7 +26,8 @@ class OpenCode2ForkWorkspaceTest < DotfilesTestCase
     cases = [
       [{}, {}, "Git not found"],
       [{"git" => @git}, {}, "Bun not found"],
-      [{"git" => @git, "bun" => @bun}, {"bun" => "1.2.22\n"}, "Bun 1.3 or newer is required; found 1.2.22"]
+      [{"git" => @git, "bun" => @bun}, {"bun" => "1.2.22\n"}, "Bun 1.3 or newer is required; found 1.2.22"],
+      [{"git" => @git, "bun" => @bun}, {"bun" => "invalid\n"}, "Bun 1.3 or newer is required; found invalid"]
     ]
 
     cases.each do |executables, captures, expected|
