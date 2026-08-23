@@ -3,11 +3,16 @@
 class TestCommandRunner
   attr_reader :calls, :capture_calls
 
-  def initialize(result: true, results: nil, executables: {}, captures: {"bun" => "1.3.14\n"}, on_run: nil)
+  def initialize(result: true, results: nil, executables: {}, captures: {}, on_run: nil)
     @result = result
     @results = results&.dup
     @executables = executables
-    @captures = captures
+    @captures = {
+      "brew" => "ready\n",
+      "bun" => "1.3.14\n",
+      "xcode-select" => "/Applications/Xcode.app/Contents/Developer\n",
+      "xcodebuild" => "ready\n"
+    }.merge(captures)
     @on_run = on_run
     @calls = []
     @capture_calls = []

@@ -271,13 +271,71 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    availability = @reporter.planned_actions.find { |action| action[:label] == :ok }
+    availability = @reporter.planned_actions.find do |action|
+      action[:label] == :ok && action[:message].start_with?("Homebrew executable:")
+    end
+    trust = @reporter.planned_actions.select { |action| action[:label] == :trust }
+    sudo = @reporter.planned_actions.find { |action| action[:label] == :sudo }
     bundle = @reporter.planned_actions.find { |action| action[:label] == :brew }
     assert_equal "Homebrew executable: /opt/homebrew/bin/brew", availability[:message]
+    assert_includes @reporter.planned_actions,
+      {label: :ok, message: "Apple developer tools meet Homebrew requirements"}
+    assert_equal ["/opt/homebrew/bin/brew trust --formula oven-sh/bun/bun"], trust.map { |action| action[:message] }
+    assert_equal "sudo -v (authenticate once for privileged casks)", sudo[:message]
     assert_includes bundle[:message], "--file=#{brewfile}"
     assert_includes bundle[:message], "install or update declared packages"
     assert_empty command_runner.calls
+    assert_equal [
+      ["xcode-select", "-p"],
+      ["xcodebuild", "-license", "check"],
+      ["/opt/homebrew/bin/brew", "doctor", "check_clt_minimum_version"],
+      ["/opt/homebrew/bin/brew", "doctor", "check_xcode_minimum_version"]
+    ], command_runner.capture_calls
     assert @reporter.dry_completion_reported
+  end
+
+  def test_homebrew_rejects_outdated_apple_developer_tools_during_preflight
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(
+      executables: {"brew" => "/opt/homebrew/bin/brew"},
+      captures: {"brew" => nil}
+    )
+
+    status = build_installer(
+      options: {only: :homebrew, dry_run: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings,
+      "Apple developer tools are missing or outdated.\n" \
+      "Open Software Update:\n" \
+      "  open 'x-apple.systempreferences:com.apple.Software-Update-Settings.extension'\n" \
+      "Update Xcode too if installed:\n" \
+      "  open 'macappstore://itunes.apple.com/app/id497799835'\n" \
+      "Then rerun: dotfiles setup"
+    assert_empty command_runner.calls
+  end
+
+  def test_homebrew_rejects_an_unaccepted_xcode_license_during_preflight
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(
+      executables: {"brew" => "/opt/homebrew/bin/brew"},
+      captures: {"xcodebuild" => nil}
+    )
+
+    status = build_installer(
+      options: {only: :homebrew, dry_run: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings,
+      "Xcode license has not been accepted.\nRun:\n  sudo xcodebuild -license accept\nThen rerun: dotfiles setup"
+    assert_empty command_runner.calls
+    assert_equal [["xcode-select", "-p"], ["xcodebuild", "-license", "check"]], command_runner.capture_calls
   end
 
   def test_homebrew_missing_executable_fails_before_prompt_or_execution
@@ -351,7 +409,11 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert_equal [
+      ["/opt/homebrew/bin/brew", "trust", "--formula", "oven-sh/bun/bun"],
+      ["sudo", "-v"],
+      ["/opt/homebrew/bin/brew", "bundle", "--file=#{brewfile}"]
+    ], command_runner.calls
     assert @reporter.completion_reported
   end
 
@@ -367,7 +429,11 @@ class InstallerTest < DotfilesTestCase
     ).install
 
     assert_equal 0, status
-    assert_equal [["/usr/local/bin/brew", "bundle", "--file=#{brewfile}"]], command_runner.calls
+    assert_equal [
+      ["/usr/local/bin/brew", "trust", "--formula", "oven-sh/bun/bun"],
+      ["sudo", "-v"],
+      ["/usr/local/bin/brew", "bundle", "--file=#{brewfile}"]
+    ], command_runner.calls
   end
 
   def test_homebrew_nonzero_and_failed_start_are_blocking
@@ -375,7 +441,7 @@ class InstallerTest < DotfilesTestCase
       @reporter.clear
       brewfile = create_file("dotfiles/Brewfile")
       command_runner = TestCommandRunner.new(
-        result: result,
+        results: [true, true, result],
         executables: {"brew" => "/opt/homebrew/bin/brew"}
       )
 
@@ -389,6 +455,45 @@ class InstallerTest < DotfilesTestCase
       assert_includes @reporter.warnings, error
       refute @reporter.completion_reported
     end
+  end
+
+  def test_homebrew_trust_failure_stops_before_bundling
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(
+      results: [false],
+      executables: {"brew" => "/opt/homebrew/bin/brew"}
+    )
+
+    status = build_installer(
+      options: {only: :homebrew, yes: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "brew trust exited with a nonzero status"
+    assert_equal [["/opt/homebrew/bin/brew", "trust", "--formula", "oven-sh/bun/bun"]], command_runner.calls
+  end
+
+  def test_homebrew_sudo_failure_stops_before_bundling
+    brewfile = create_file("dotfiles/Brewfile")
+    command_runner = TestCommandRunner.new(
+      results: [true, false],
+      executables: {"brew" => "/opt/homebrew/bin/brew"}
+    )
+
+    status = build_installer(
+      options: {only: :homebrew, yes: true},
+      config: {brewfile_path: brewfile},
+      runtime: {command_runner: command_runner}
+    ).install
+
+    assert_equal 1, status
+    assert_includes @reporter.warnings, "sudo authentication failed"
+    assert_equal [
+      ["/opt/homebrew/bin/brew", "trust", "--formula", "oven-sh/bun/bun"],
+      ["sudo", "-v"]
+    ], command_runner.calls
   end
 
   def test_homebrew_only_excludes_mappings_skills_and_neovim

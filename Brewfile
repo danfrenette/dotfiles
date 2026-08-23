@@ -1,5 +1,4 @@
 # Taps
-tap "schpet/tap"
 tap "oven-sh/bun"
 
 # ==============================================================================
@@ -9,7 +8,6 @@ tap "oven-sh/bun"
 brew "git"
 brew "git-delta"        # Better git diffs
 brew "gh"               # GitHub CLI
-brew "schpet/tap/linear" # Linear CLI
 brew "fzf"              # Fuzzy finder
 brew "ripgrep"          # Fast grep
 brew "bat"              # Better cat
@@ -39,16 +37,15 @@ cask "caffeine"
 cask "cleanshot"
 cask "cursor"
 cask "discord"
-cask "docker"
+cask "docker-desktop"
 cask "dropbox"
 cask "ghostty"
-cask "linear-linear"
+cask "linear"
 cask "microsoft-word"
 cask "nordpass"
 cask "obsidian"
 cask "postman"
 cask "raycast"
-cask "protonvpn"
 cask "qlcolorcode"       # QuickLook: syntax highlighting
 cask "qlmarkdown"        # QuickLook: markdown preview
 cask "slack"

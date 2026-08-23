@@ -19,7 +19,7 @@ class CommandRunner
   end
 
   def capture(*command)
-    output, status = Open3.capture2(*command)
+    output, status = Open3.capture2e(*command)
     status.success? ? output : nil
   rescue SystemCallError
     nil
