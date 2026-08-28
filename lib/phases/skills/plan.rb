@@ -13,14 +13,17 @@ module Phases
       end
 
       def command
-        [package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global", "--agent", "opencode"]
+        [
+          package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global",
+          "--agent", "opencode", "--agent", "cursor"
+        ]
       end
 
       def report
         reporter = Reporters::ConsoleReporter.current
         reporter.report_planned(
           :skills,
-          "#{command.join(" ")} (opens the skills CLI to select skills for global OpenCode)"
+          "#{command.join(" ")} (opens the skills CLI to select global OpenCode and Cursor skills)"
         )
       end
     end

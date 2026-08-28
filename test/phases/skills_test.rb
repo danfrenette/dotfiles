@@ -10,12 +10,15 @@ class SkillsPhaseTest < DotfilesTestCase
     use_reporter(@reporter)
   end
 
-  def test_plan_reports_the_pinned_global_opencode_handoff
+  def test_plan_reports_the_pinned_global_agent_handoff
     phase = build_phase(executables: {"pnpm" => "/fake/pnpm"})
 
     plan = phase.prepare.plan
 
-    assert_equal ["/fake/pnpm", "dlx", "skills@1.5.22", "add", "danfrenette/skills", "--global", "--agent", "opencode"], plan.command
+    assert_equal [
+      "/fake/pnpm", "dlx", "skills@1.5.23", "add", "danfrenette/skills", "--global",
+      "--agent", "opencode", "--agent", "cursor"
+    ], plan.command
     assert_equal :skills, @reporter.planned_actions.last[:label]
     assert_predicate plan, :frozen?
   end

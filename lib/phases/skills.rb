@@ -9,7 +9,7 @@ module Phases
   class Skills
     NAME = :skills
     CATALOG = "danfrenette/skills"
-    VERSION = "1.5.22"
+    VERSION = "1.5.23"
 
     class Error < Phases::Error; end
 

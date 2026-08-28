@@ -567,7 +567,7 @@ class InstallerTest < DotfilesTestCase
 
     assert_equal 0, status
     skills = @reporter.planned_actions.find { |action| action[:label] == :skills }
-    assert_includes skills[:message], "/fake/pnpm dlx skills@1.5.22 add danfrenette/skills --global --agent opencode"
+    assert_includes skills[:message], "/fake/pnpm dlx skills@1.5.23 add danfrenette/skills --global --agent opencode --agent cursor"
     assert_equal ["Installing skills"], @reporter.phases
     assert_empty runner.calls
     assert @reporter.dry_completion_reported

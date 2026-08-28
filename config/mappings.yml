@@ -33,5 +33,3 @@ mappings:
     target: .pryrc
   - source: config/psqlrc
     target: .psqlrc
-  - source: cursor/commands
-    target: .cursor/commands
