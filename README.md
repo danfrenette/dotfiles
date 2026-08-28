@@ -34,7 +34,7 @@ This will:
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
 3. Symlink config files to their target locations (backing up replaced files to `.backup`)
-4. Install agent skills into OpenCode
+4. Install agent skills into OpenCode and Cursor
 5. Install Neovim plugins
 
 ### Manual Installation
@@ -68,22 +68,22 @@ bundle exec rake standard   # Run linter
 
 ## What's Included
 
-- **Git** - Config with way too many aliases, global gitignore I don't use, commit template that I also don't use.
-- **Zsh** - Shell config, aliases (too many), functions (not enough), some decent plugins
+- **Git** - Config with way too many aliases, XDG global ignores, and a commit template
+- **Zsh** - Shell config, aliases, Homebrew-managed plugins, and mise-managed Node
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **OpenCode** - Personal skills installed from `danfrenette/skills`
-- **Homebrew** - CLI tools and casks via Brewfile
+- **Agent skills** - Personal skills installed from `danfrenette/skills` for OpenCode and Cursor
+- **Homebrew** - CLI tools, versioned PostgreSQL servers, and casks via Brewfile
 
 ## Agent Skills
 
-Run `dotfiles refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode configuration.
+Run `dotfiles refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode and Cursor configurations.
 
 ## Adding New Dotfiles
 
 1. Add source files to the appropriate directory
-2. Update `lib/config.rb` with the new mappings
+2. Add the source and target to `config/mappings.yml`
 3. Run `dotfiles refresh` to create symlinks and refresh skills
 
 ## Verification
