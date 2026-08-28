@@ -60,7 +60,6 @@ fi
 # ==============================================================================
 
 bindkey "^s" beginning-of-line
-bindkey "^e" end-of-line
 bindkey "^f" forward-char
 bindkey "^b" backward-char
 bindkey "^k" kill-line
@@ -107,7 +106,6 @@ source $DOTFILES/zsh/configs/prompt.zsh
 # Path
 # ==============================================================================
 
-export PATH="$HOME/.rbenv/shims:$PATH"
 eval "$(rbenv init -)"
 
 # pnpm
@@ -120,12 +118,6 @@ esac
 # Postgres 16 Client Utilities
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
-# ==============================================================================
-# Misc
-# ==============================================================================
-
-USE_BUILTIN_RIPGREP=0
-
 # Machine-specific config (not tracked in git)
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
@@ -133,7 +125,7 @@ export NVM_DIR="$HOME/.config/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-# dotfiles bin (before system paths to take precedence)
+# dotfiles bin
 export PATH="$DOTFILES/bin:$PATH"
 
 # bun completions
@@ -141,7 +133,3 @@ export PATH="$DOTFILES/bin:$PATH"
 
 # tailcode
 export PATH="$HOME/.bun/bin:$PATH"
-
-
-# Local bin scripts
-export PATH="$HOME/.local/bin:$PATH"
