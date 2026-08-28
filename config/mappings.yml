@@ -23,6 +23,8 @@ mappings:
     target: .config/nvim/lua/autocmds.lua
   - source: config/ghostty/config
     target: .config/ghostty/config
+  - source: config/mise/config.toml
+    target: .config/mise/config.toml
   - source: tmux/tmux.conf
     target: .tmux.conf
   - source: ruby/irbrc

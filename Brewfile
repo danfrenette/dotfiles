@@ -17,14 +17,14 @@ brew "jq"               # JSON processor
 brew "neovim"
 brew "tmux"
 brew "rbenv"
+brew "mise"
 brew "pnpm"
 brew "oven-sh/bun/bun"
-brew "zplug"            # Zsh plugin manager
-brew "thefuck"          # Auto-correct previous command
 brew "tig"              # Text-mode git interface
 brew "tokei"            # Count lines of code by language
 brew "tree"             # Display directory structure
 brew "zsh-autosuggestions"  # Fish-like autosuggestions
+brew "zsh-syntax-highlighting"
 brew "pgcli"              # PostgreSQL CLI with autocomplete
 brew "httpie"             # HTTP client, curl alternative
 brew "lnav"               # Log file viewer

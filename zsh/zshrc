@@ -75,7 +75,7 @@ bindkey '^[[Z' reverse-menu-complete  # Shift-tab to go backwards
 # Less / Man pages (colored output)
 # ==============================================================================
 
-export LESS="--ignore-case --LONG-PROMPT --RAW-CONTROL-CHARS --quit-if-one-screen --no-init"
+export LESS="--ignore-case --LONG-PROMPT --RAW-CONTROL-CHARS --quit-if-one-screen --no-init --mouse --wheel-lines=3"
 export LESS_TERMCAP_mb=$'\E[1;31m'     # Begin blinking (red)
 export LESS_TERMCAP_md=$'\E[1;36m'     # Begin bold (cyan)
 export LESS_TERMCAP_me=$'\E[0m'        # End mode
@@ -108,6 +108,10 @@ source $DOTFILES/zsh/configs/prompt.zsh
 
 eval "$(rbenv init -)"
 
+if (( $+commands[mise] )); then
+  eval "$(mise activate zsh)"
+fi
+
 # pnpm
 export PNPM_HOME="$HOME/Library/pnpm"
 case ":$PATH:" in
@@ -120,10 +124,6 @@ export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
 # Machine-specific config (not tracked in git)
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
-
-export NVM_DIR="$HOME/.config/nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 # dotfiles bin
 export PATH="$DOTFILES/bin:$PATH"
