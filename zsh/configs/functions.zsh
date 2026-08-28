@@ -12,7 +12,7 @@ function gnb {
 
 # git diff against the repository's default branch
 function gdb {
-  git diff "$(git_default_branch)..HEAD" --histogram
+  git diff "origin/$(git_default_branch)...HEAD" --histogram
 }
 
 #setup tracking information against current branch
@@ -54,6 +54,18 @@ function gcompare {
   remote_url=${remote_url%.git}
 
   open "${remote_url}/compare/${default_branch}...${current_branch}"
+}
+
+function startpostgres {
+  brew services start "postgresql@${1:-17}"
+}
+
+function stoppostgres {
+  brew services stop "postgresql@${1:-17}"
+}
+
+function restart_postgres {
+  brew services restart "postgresql@${1:-17}"
 }
 
 # Type commit messages with bare words (certain chars must be escaped)

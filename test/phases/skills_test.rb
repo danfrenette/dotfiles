@@ -17,7 +17,7 @@ class SkillsPhaseTest < DotfilesTestCase
 
     assert_equal [
       "/fake/pnpm", "dlx", "skills@1.5.23", "add", "danfrenette/skills", "--global",
-      "--agent", "opencode", "--agent", "cursor"
+      "--agent", "opencode", "cursor"
     ], plan.command
     assert_equal :skills, @reporter.planned_actions.last[:label]
     assert_predicate plan, :frozen?

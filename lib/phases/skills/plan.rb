@@ -15,7 +15,7 @@ module Phases
       def command
         [
           package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global",
-          "--agent", "opencode", "--agent", "cursor"
+          "--agent", "opencode", "cursor"
         ]
       end
 
