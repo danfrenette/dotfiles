@@ -25,6 +25,10 @@ brew "tokei"            # Count lines of code by language
 brew "tree"             # Display directory structure
 brew "zsh-autosuggestions"  # Fish-like autosuggestions
 brew "zsh-syntax-highlighting"
+brew "libpq"
+brew "postgresql@14"
+brew "postgresql@16"
+brew "postgresql@17"
 brew "pgcli"              # PostgreSQL CLI with autocomplete
 brew "httpie"             # HTTP client, curl alternative
 brew "lnav"               # Log file viewer

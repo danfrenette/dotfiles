@@ -119,7 +119,7 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 
-# Postgres 16 Client Utilities
+# PostgreSQL client utilities
 export PATH="/opt/homebrew/opt/libpq/bin:$PATH"
 
 # Machine-specific config (not tracked in git)
