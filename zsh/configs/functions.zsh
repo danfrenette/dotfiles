@@ -10,14 +10,14 @@ function gnb {
   git co -b $1
 }
 
-#git diff develop
+# git diff against the repository's default branch
 function gdb {
-  git diff develop..$git_branch_name --patience
+  git diff "$(git_default_branch)..HEAD" --histogram
 }
 
 #setup tracking information against current branch
 function setupstream {
-  git branch --set-upstream-to=origin/$git_branch_name
+  git branch --set-upstream-to="origin/$(git_branch_name)"
 }
 
 # git rename branch
@@ -26,8 +26,13 @@ function grb {
 }
 
 function git_branch_name {
-  val=`git branch 2>/dev/null | grep '^*' | colrm 1 2`
-  echo "$val"
+  git branch --show-current 2>/dev/null
+}
+
+function git_default_branch {
+  local branch=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+  branch=${branch#origin/}
+  echo "${branch:-main}"
 }
 
 # if passed an argument, g is an alias for git, otherwise return git status
@@ -42,12 +47,13 @@ function g {
 function gcompare {
   local remote_url=$(git config --get remote.origin.url)
   local current_branch=$(git rev-parse --abbrev-ref HEAD)
+  local default_branch=$(git_default_branch)
 
   # Convert SSH URL to HTTPS and remove .git suffix
   remote_url=${remote_url/git@github.com:/https://github.com/}
   remote_url=${remote_url%.git}
 
-  open "${remote_url}/compare/main...${current_branch}"
+  open "${remote_url}/compare/${default_branch}...${current_branch}"
 }
 
 # Type commit messages with bare words (certain chars must be escaped)
@@ -130,4 +136,3 @@ function ta {
 function tks {
   tmux kill-session -t $1
 }
-

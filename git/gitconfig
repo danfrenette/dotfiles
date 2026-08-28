@@ -2,7 +2,6 @@
   name = Dan Frenette
   email = dan.r.frenette@gmail.com
 [init]
-  templatedir = ~/.git_template
   defaultBranch = main
 [push]
   default = current
@@ -12,8 +11,6 @@
   diff = auto
   status = auto
   branch = auto
-[color "diff"]
-  meta = yellow
 [alias]
   aa = add --all
   ap = add --patch
@@ -47,13 +44,11 @@
   uncommit = reset --soft HEAD^
   standup = log --since=yesterday --author=\"Dan Frenette\"
   conflicts = diff --name-only --diff-filter=U
-  cleanup = !git remote prune origin && git gc && git clean -df && git stash clear
-  cleanup-merged = !git branch --merged | grep -v '^\\*\\|main\\|master' | xargs -n 1 git branch -d
+  cleanup-merged = "!f() { default_branch=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null); default_branch=${default_branch#origin/}; current_branch=$(git branch --show-current); git for-each-ref --format='%(refname:short)' --merged=HEAD refs/heads | while IFS= read -r branch; do if [ \"$branch\" != \"${default_branch:-main}\" ] && [ \"$branch\" != \"$current_branch\" ]; then git branch -d \"$branch\"; fi; done; }; f"
   copysha = !git rev-parse HEAD | pbcopy
   ###
   df = diff --ignore-space-change --histogram --find-renames --find-copies --unified=10 --stat
 [core]
-  excludesfile = ~/.gitignore
   autocrlf = input
   editor = nvim
   pager = delta
@@ -61,7 +56,7 @@
   diffFilter = delta --color-only
 [merge]
   ff = only
-  tool = vim
+  tool = nvimdiff
   conflictStyle = zdiff3
 [delta]
   navigate = true  # use n and N to move between diff sections

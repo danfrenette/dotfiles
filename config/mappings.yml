@@ -3,8 +3,6 @@ mappings:
     target: .local/bin/dotfiles
   - source: git/gitconfig
     target: .gitconfig
-  - source: git/gitignore
-    target: .gitignore
   - source: git/gitmessage
     target: .gitmessage
   - source: git/ignore

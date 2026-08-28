@@ -17,7 +17,6 @@ class ConfigTest < DotfilesTestCase
     mappings = @config.mappings
 
     assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitconfig") }
-    assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitignore") }
     assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "gitmessage") }
     assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "ignore") }
   end
