@@ -14,7 +14,7 @@ autocmd('TextYankPost', {
   group = 'YankHighlight',
   desc = 'Highlight when yanking text',
   callback = function()
-    vim.highlight.on_yank({ higroup = 'IncSearch', timeout = 200 })
+    vim.hl.on_yank({ higroup = 'IncSearch', timeout = 200 })
   end,
 })
 
@@ -23,9 +23,6 @@ autocmd('TextYankPost', {
 -- ==============================================================================
 
 augroup('FileTypeSettings', { clear = true })
-
--- Enable filetype detection
-vim.cmd('filetype plugin indent on')
 
 -- ==============================================================================
 -- Trim Trailing Whitespace

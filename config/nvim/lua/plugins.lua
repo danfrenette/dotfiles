@@ -28,7 +28,7 @@ Plug('wsdjeg/vim-fetch')                -- Open file:line:col
 Plug('nanotech/jellybeans.vim')
 
 -- Testing
-Plug('janko-m/vim-test')
+Plug('vim-test/vim-test')
 
 -- Searching
 Plug('mhinz/vim-grepper')

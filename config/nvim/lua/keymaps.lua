@@ -54,7 +54,7 @@ map('n', '<leader>gs', '<cmd>Git<CR>', opts)
 map('n', '<leader>gc', '<cmd>Git commit<CR>', opts)
 map('n', '<leader>gg', '<cmd>GBrowse<CR>', opts)
 map('n', '<leader>gb', '<cmd>Git blame<CR>', opts)
-map('n', '<leader>gd', '<cmd>Gdiff<CR>', opts)
+map('n', '<leader>gd', '<cmd>Gdiffsplit<CR>', opts)
 
 -- ==============================================================================
 -- Testing (vim-test)
@@ -76,12 +76,6 @@ map('n', '<leader>u', '<cmd>A<CR>', opts)  -- Alternate file
 
 map('n', '<leader>f', '<cmd>Grepper<CR>', opts)
 map('n', '<leader>a', '<cmd>Grepper -tool rg<CR>', opts)
-
--- ==============================================================================
--- Buffers
--- ==============================================================================
-
-map('n', '<leader>b', '<cmd>Buffers<CR>', opts)
 
 -- ==============================================================================
 -- Debugging
