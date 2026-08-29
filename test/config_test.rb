@@ -21,6 +21,10 @@ class ConfigTest < DotfilesTestCase
     assert mappings.any? { |mapping| mapping.source == @config.dotfiles_path("git", "ignore") }
   end
 
+  def test_skills_catalog_path_is_derived_from_the_repository
+    assert_equal @config.dotfiles_path("config", "skills.yml"), @config.skills_catalog_path
+  end
+
   def test_git_mappings_point_to_correct_targets
     mappings = @config.mappings
 

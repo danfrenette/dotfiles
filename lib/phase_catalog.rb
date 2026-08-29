@@ -130,6 +130,7 @@ class PhaseCatalog
 
   def skills
     Phases::Skills.new(
+      catalog_path: config.skills_catalog_path,
       package_manager_candidates: config.pnpm_candidates,
       command_runner: runtime.command_runner
     )

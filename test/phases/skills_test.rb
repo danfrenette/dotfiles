@@ -7,6 +7,11 @@ class SkillsPhaseTest < DotfilesTestCase
   def setup
     super
     @reporter = Reporters::TestReporter.new
+    @catalog_path = create_file("default-skills.yml", <<~YAML)
+      catalogs:
+        - source: owner/default
+          skills: "*"
+    YAML
     use_reporter(@reporter)
   end
 
@@ -85,7 +90,7 @@ class SkillsPhaseTest < DotfilesTestCase
 
   private
 
-  def build_phase(executables: {}, command_runner: nil, catalog_path: nil)
+  def build_phase(executables: {}, command_runner: nil, catalog_path: @catalog_path)
     runner = command_runner || TestCommandRunner.new(executables: executables)
     Phases::Skills.new(
       package_manager_candidates: ["/fake/pnpm"],

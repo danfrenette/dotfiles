@@ -40,6 +40,10 @@ class Config
     dotfiles_path("Brewfile")
   end
 
+  def skills_catalog_path
+    dotfiles_path("config", "skills.yml")
+  end
+
   def opencode2_global_dir
     home_path(".local", "share", "pnpm", "global")
   end

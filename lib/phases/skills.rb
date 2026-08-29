@@ -9,15 +9,14 @@ require_relative "error"
 module Phases
   class Skills
     NAME = :skills
-    CATALOG_PATH = File.expand_path("../../config/skills.yml", __dir__)
     VERSION = "1.5.23"
 
     class Error < Phases::Error; end
 
-    def initialize(package_manager_candidates:, command_runner:, catalog_path: nil)
+    def initialize(catalog_path:, package_manager_candidates:, command_runner:)
+      @catalog_path = catalog_path
       @package_manager_candidates = package_manager_candidates
       @command_runner = command_runner
-      @catalog_path = catalog_path || CATALOG_PATH
     end
 
     def name

@@ -5,6 +5,7 @@ class TestConfig
     :nvim_configuration_targets,
     :nvim_plugin_manager_path,
     :brewfile_path,
+    :skills_catalog_path,
     :opencode2_global_dir,
     :user_bin_dir,
     :opencode_fork_checkout,
@@ -15,6 +16,7 @@ class TestConfig
     nvim_configuration_targets: [],
     nvim_plugin_manager_path: "/nonexistent/plug.vim",
     brewfile_path: "/nonexistent/Brewfile",
+    skills_catalog_path: File.expand_path("../../config/skills.yml", __dir__),
     opencode2_global_dir: "/nonexistent/opencode2-global",
     user_bin_dir: "/nonexistent/bin",
     opencode_fork_checkout: "/nonexistent/code/opencode",
@@ -24,6 +26,7 @@ class TestConfig
     @nvim_configuration_targets = nvim_configuration_targets
     @nvim_plugin_manager_path = nvim_plugin_manager_path
     @brewfile_path = brewfile_path
+    @skills_catalog_path = skills_catalog_path
     @opencode2_global_dir = opencode2_global_dir
     @user_bin_dir = user_bin_dir
     @opencode_fork_checkout = opencode_fork_checkout
