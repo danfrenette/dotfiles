@@ -1,0 +1,16 @@
+catalogs:
+  - source: danfrenette/skills
+    skills: "*"
+  - source: jakubkrehel/skills
+    skills:
+      - better-interface
+      - better-ui
+      - better-typography
+      - better-colors
+      - better-accessibility
+      - better-layout
+      - better-writing
+      - interface-review
+      - explain-interface
+      - break
+      - variant

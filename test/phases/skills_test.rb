@@ -10,15 +10,30 @@ class SkillsPhaseTest < DotfilesTestCase
     use_reporter(@reporter)
   end
 
-  def test_plan_reports_the_pinned_global_agent_handoff
-    phase = build_phase(executables: {"pnpm" => "/fake/pnpm"})
+  def test_plan_reports_the_pinned_global_catalog_handoff
+    catalog = create_file("skills.yml", <<~YAML)
+      catalogs:
+        - source: owner/first
+          skills: "*"
+        - source: owner/second
+          skills:
+            - alpha
+            - beta
+    YAML
+    phase = build_phase(executables: {"pnpm" => "/fake/pnpm"}, catalog_path: catalog)
 
     plan = phase.prepare.plan
 
     assert_equal [
-      "/fake/pnpm", "dlx", "skills@1.5.23", "add", "danfrenette/skills", "--global",
-      "--agent", "opencode", "cursor"
-    ], plan.command
+      [
+        "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/first",
+        "--global", "--agent", "opencode", "cursor", "--skill", "*", "--yes"
+      ],
+      [
+        "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/second",
+        "--global", "--agent", "opencode", "cursor", "--skill", "alpha", "beta", "--yes"
+      ]
+    ], plan.commands
     assert_equal :skills, @reporter.planned_actions.last[:label]
     assert_predicate plan, :frozen?
   end
@@ -40,13 +55,42 @@ class SkillsPhaseTest < DotfilesTestCase
     end
   end
 
+  def test_apply_runs_catalogs_in_order_and_stops_on_failure
+    catalog = create_file("skills.yml", <<~YAML)
+      catalogs:
+        - source: owner/first
+          skills: "*"
+        - source: owner/second
+          skills: beta
+        - source: owner/third
+          skills: gamma
+    YAML
+    runner = TestCommandRunner.new(results: [true, false], executables: {"pnpm" => "/fake/pnpm"})
+    phase = build_phase(command_runner: runner, catalog_path: catalog)
+
+    error = assert_raises(Phases::Skills::Error) { phase.prepare.apply }
+
+    assert_equal "skills installation exited with a nonzero status", error.message
+    assert_equal [
+      [
+        "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/first",
+        "--global", "--agent", "opencode", "cursor", "--skill", "*", "--yes"
+      ],
+      [
+        "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/second",
+        "--global", "--agent", "opencode", "cursor", "--skill", "beta", "--yes"
+      ]
+    ], runner.calls
+  end
+
   private
 
-  def build_phase(executables: {}, command_runner: nil)
+  def build_phase(executables: {}, command_runner: nil, catalog_path: nil)
     runner = command_runner || TestCommandRunner.new(executables: executables)
     Phases::Skills.new(
       package_manager_candidates: ["/fake/pnpm"],
-      command_runner: runner
+      command_runner: runner,
+      catalog_path: catalog_path
     )
   end
 end

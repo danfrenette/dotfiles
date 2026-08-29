@@ -73,12 +73,12 @@ bundle exec rake standard   # Run linter
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **Agent skills** - Personal skills installed from `danfrenette/skills` for OpenCode and Cursor
+- **Agent skills** - Personal and community skills declared in `config/skills.yml` for OpenCode and Cursor
 - **Homebrew** - CLI tools, versioned PostgreSQL servers, and casks via Brewfile
 
 ## Agent Skills
 
-Run `dotfiles refresh` to update dotfiles and launch the pinned [skills CLI](https://github.com/vercel-labs/skills). It installs selected skills from `danfrenette/skills` into the global OpenCode and Cursor configurations.
+Run `dotfiles refresh` to update dotfiles and install the catalogs declared in `config/skills.yml` with the pinned [skills CLI](https://github.com/vercel-labs/skills). Catalog entries can install every skill from a trusted repository with `skills: "*"` or list an explicit reviewed subset. Skills are installed into the global OpenCode and Cursor configurations.
 
 ## Adding New Dotfiles
 

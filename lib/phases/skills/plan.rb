@@ -5,27 +5,26 @@ require_relative "../../reporters/console_reporter"
 module Phases
   class Skills
     class Plan
-      attr_reader :package_manager
-
-      def initialize(package_manager:)
+      def initialize(package_manager:, catalogs:)
         @package_manager = package_manager
+        @catalogs = catalogs
         freeze
       end
 
-      def command
-        [
-          package_manager, "dlx", "skills@#{VERSION}", "add", CATALOG, "--global",
-          "--agent", "opencode", "cursor"
-        ]
+      def commands
+        catalogs.map { |catalog| catalog.command(package_manager: package_manager) }
       end
 
       def report
         reporter = Reporters::ConsoleReporter.current
-        reporter.report_planned(
-          :skills,
-          "#{command.join(" ")} (opens the skills CLI to select global OpenCode and Cursor skills)"
-        )
+        commands.each do |command|
+          reporter.report_planned(:skills, command.join(" "))
+        end
       end
+
+      private
+
+      attr_reader :package_manager, :catalogs
     end
   end
 end
