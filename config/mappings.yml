@@ -25,6 +25,8 @@ mappings:
     target: .config/ghostty/config
   - source: config/mise/config.toml
     target: .config/mise/config.toml
+  - source: config/periodic-work/projects.yaml
+    target: .config/periodic-work/projects.yaml
   - source: tmux/tmux.conf
     target: .tmux.conf
   - source: ruby/irbrc

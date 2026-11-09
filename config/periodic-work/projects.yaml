@@ -1,0 +1,8 @@
+# Registry for the periodic-work skill. Cadences are a comma-separated string: daily, weekly, monthly.
+projects:
+  - directory: ~/code/anaphor
+    cadences: daily
+  - directory: ~/code/autodidact
+    cadences: daily
+  - directory: ~/code/blog
+    cadences: daily
