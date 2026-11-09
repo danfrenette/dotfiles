@@ -19,7 +19,7 @@ module Phases
       def command(package_manager:)
         [
           package_manager, "dlx", "skills@#{VERSION}", "add", source,
-          "--global", "--agent", "opencode", "cursor", "--skill", *skills, "--yes"
+          "--global", "--full-depth", "--agent", "opencode", "cursor", "--skill", *skills, "--yes"
         ]
       end
 
