@@ -32,11 +32,11 @@ class SkillsPhaseTest < DotfilesTestCase
     assert_equal [
       [
         "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/first",
-        "--global", "--full-depth", "--agent", "opencode", "cursor", "--skill", "*", "--yes"
+        "--global", "--full-depth", "--agent", "opencode", "codex", "claude-code", "cursor", "--skill", "*", "--yes"
       ],
       [
         "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/second",
-        "--global", "--full-depth", "--agent", "opencode", "cursor", "--skill", "alpha", "beta", "--yes"
+        "--global", "--full-depth", "--agent", "opencode", "codex", "claude-code", "cursor", "--skill", "alpha", "beta", "--yes"
       ]
     ], plan.commands
     assert_equal :skills, @reporter.planned_actions.last[:label]
@@ -79,11 +79,11 @@ class SkillsPhaseTest < DotfilesTestCase
     assert_equal [
       [
         "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/first",
-        "--global", "--full-depth", "--agent", "opencode", "cursor", "--skill", "*", "--yes"
+        "--global", "--full-depth", "--agent", "opencode", "codex", "claude-code", "cursor", "--skill", "*", "--yes"
       ],
       [
         "/fake/pnpm", "dlx", "skills@1.5.23", "add", "owner/second",
-        "--global", "--full-depth", "--agent", "opencode", "cursor", "--skill", "beta", "--yes"
+        "--global", "--full-depth", "--agent", "opencode", "codex", "claude-code", "cursor", "--skill", "beta", "--yes"
       ]
     ], runner.calls
   end

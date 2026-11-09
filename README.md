@@ -34,7 +34,7 @@ This will:
 1. Install Homebrew (if not already installed)
 2. Install packages from `Brewfile`
 3. Symlink config files to their target locations (backing up replaced files to `.backup`)
-4. Install agent skills into OpenCode and Cursor
+4. Install agent skills into OpenCode, Codex, Claude Code, and Cursor
 5. Install Neovim plugins
 
 ### Manual Installation
@@ -73,12 +73,12 @@ bundle exec rake standard   # Run linter
 - **Neovim** - Lua config with vim-plug (tpope essentials, vim-test, copilot)
 - **Tmux** - TPM, catppuccin theme, vim-tmux-navigator, session persistence
 - **Ruby** - irbrc/pryrc with awesome_print and helpers
-- **Agent skills** - Personal and community skills declared in `config/skills.yml` for OpenCode and Cursor
+- **Agent skills** - Personal and community skills declared in `config/skills.yml` for OpenCode, Codex, Claude Code, and Cursor
 - **Homebrew** - CLI tools, versioned PostgreSQL servers, and casks via Brewfile
 
 ## Agent Skills
 
-Run `dotfiles refresh` to update dotfiles and install the catalogs declared in `config/skills.yml` with the pinned [skills CLI](https://github.com/vercel-labs/skills). Catalog entries can install every skill from a trusted repository with `skills: "*"` or list an explicit reviewed subset. Skills are installed into the global OpenCode and Cursor configurations.
+Run `dotfiles refresh` to update dotfiles and install the catalogs declared in `config/skills.yml` with the pinned [skills CLI](https://github.com/vercel-labs/skills). Catalog entries can install every skill from a trusted repository with `skills: "*"` or list an explicit reviewed subset. Skills are installed into the global OpenCode, Codex, Claude Code, and Cursor configurations.
 
 ## Adding New Dotfiles
 
