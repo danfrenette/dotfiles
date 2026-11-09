@@ -25,6 +25,14 @@ mappings:
     target: .config/ghostty/config
   - source: config/mise/config.toml
     target: .config/mise/config.toml
+  - source: config/opencode/opencode.jsonc
+    target: .config/opencode/opencode.jsonc
+  - source: config/opencode/agents/implementer.md
+    target: .config/opencode/agents/implementer.md
+  - source: config/opencode/agents/reviewer.md
+    target: .config/opencode/agents/reviewer.md
+  - source: config/opencode/agents/verifier.md
+    target: .config/opencode/agents/verifier.md
   - source: tmux/tmux.conf
     target: .tmux.conf
   - source: ruby/irbrc

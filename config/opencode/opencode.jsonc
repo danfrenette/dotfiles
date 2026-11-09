@@ -1,0 +1,65 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["opencode-with-claude"],
+  "providers": {
+    "anthropic": {
+      "settings": {
+        "baseURL": "http://127.0.0.1:3456/v1",
+        "apiKey": "dummy"
+      }
+    }
+  },
+  "mcp": {
+    "paper": {
+      "type": "remote",
+      "url": "http://127.0.0.1:29979/mcp",
+      "enabled": true
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp"
+    }
+  },
+  "websearch": {
+    "provider": "random"
+  },
+  "agents": {
+    "explore": { "model": "opencode-go/deepseek-v4.1-flash" }
+  },
+  "permissions": [
+    // Skills for other harnesses (Cursor, Claude app, Claude Code)
+    { "action": "skill", "resource": "automate", "effect": "deny" },
+    { "action": "skill", "resource": "canvas", "effect": "deny" },
+    { "action": "skill", "resource": "create-hook", "effect": "deny" },
+    { "action": "skill", "resource": "create-rule", "effect": "deny" },
+    { "action": "skill", "resource": "create-skill", "effect": "deny" },
+    { "action": "skill", "resource": "create-subagent", "effect": "deny" },
+    { "action": "skill", "resource": "migrate-to-skills", "effect": "deny" },
+    { "action": "skill", "resource": "new-repo", "effect": "deny" },
+    { "action": "skill", "resource": "origin", "effect": "deny" },
+    { "action": "skill", "resource": "sdk", "effect": "deny" },
+    { "action": "skill", "resource": "share", "effect": "deny" },
+    { "action": "skill", "resource": "update-cli-config", "effect": "deny" },
+    { "action": "skill", "resource": "update-cursor-settings", "effect": "deny" },
+    { "action": "skill", "resource": "deploy-with-vercel", "effect": "deny" },
+    { "action": "skill", "resource": "onboard", "effect": "deny" },
+    { "action": "skill", "resource": "goal", "effect": "deny" },
+    { "action": "skill", "resource": "built-in-browser", "effect": "deny" },
+    { "action": "skill", "resource": "chrome-browser", "effect": "deny" },
+    { "action": "skill", "resource": "computer-use", "effect": "deny" },
+    { "action": "skill", "resource": "docs", "effect": "deny" },
+    { "action": "skill", "resource": "google-workspace", "effect": "deny" },
+    { "action": "skill", "resource": "import-memory", "effect": "deny" },
+    { "action": "skill", "resource": "morning", "effect": "deny" },
+    { "action": "skill", "resource": "statusline", "effect": "deny" },
+    { "action": "skill", "resource": "loop", "effect": "deny" },
+    // Overlaps: keep writing-for-agents, skill-creator, emil-design-eng, better-ui, grilling
+    { "action": "skill", "resource": "write-a-skill", "effect": "deny" },
+    { "action": "skill", "resource": "emil-writing-skills", "effect": "deny" },
+    { "action": "skill", "resource": "emil-design-engineering", "effect": "deny" },
+    { "action": "skill", "resource": "make-interfaces-feel-better", "effect": "deny" },
+    { "action": "skill", "resource": "emil-ui-polish", "effect": "deny" },
+    { "action": "skill", "resource": "grill-me", "effect": "deny" },
+    { "action": "skill", "resource": "grill-with-docs", "effect": "deny" }
+  ]
+}
